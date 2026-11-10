@@ -26,7 +26,7 @@ import dev.bhavyam.min.ui.common.Themed
 class ToolButton(
     context: Context,
     icon: Icons.Icon,
-    private val text: String?,
+    text: String?,
     description: String,
     private val settings: SettingsStore,
 ) : View(context), Themed {
