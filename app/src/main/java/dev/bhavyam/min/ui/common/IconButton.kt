@@ -7,7 +7,7 @@ import dev.bhavyam.min.icons.Icons
 import dev.bhavyam.min.settings.SettingsStore
 import dev.bhavyam.min.theme.Theme
 
-/** A round, icon-only button (back arrows, studio tools). */
+/** A round, icon-only button (back arrows, sheet actions). */
 @SuppressLint("ViewConstructor")
 class IconButton(context: Context, icon: Icons.Icon, settings: SettingsStore, description: String) :
     IconView(context, icon, Globals.Space.ICON_BUTTON, muted = false) {

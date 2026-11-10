@@ -26,6 +26,7 @@ import dev.bhavyam.min.search.SearchResult
 import dev.bhavyam.min.settings.SettingsRegistry
 import dev.bhavyam.min.settings.SettingsStore
 import dev.bhavyam.min.theme.Theme
+import dev.bhavyam.min.ui.common.KeyboardInsets
 import dev.bhavyam.min.ui.common.Themed
 import dev.bhavyam.min.ui.common.style
 import kotlin.math.abs

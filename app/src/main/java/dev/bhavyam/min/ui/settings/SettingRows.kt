@@ -158,7 +158,7 @@ sealed class SettingRow(
 
     class PermissionRow(context: Context, private val permission: Permission, keys: List<String>, settings: SettingsStore, host: SettingsHost) :
         SettingRow(context, permission, keys, settings) {
-        private val grant = TokenButton(context, 0, settings).apply {
+        private val grant = TokenButton(context, settings).apply {
             text = "Allow"
             setOnClickListener { host.requestPermission(permission.permission) }
         }

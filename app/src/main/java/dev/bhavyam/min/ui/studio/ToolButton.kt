@@ -14,19 +14,18 @@ import dev.bhavyam.min.icons.Icons
 import dev.bhavyam.min.motion.Spring
 import dev.bhavyam.min.settings.SettingsRegistry
 import dev.bhavyam.min.settings.SettingsStore
-import dev.bhavyam.min.theme.IconStyle
 import dev.bhavyam.min.theme.Theme
 import dev.bhavyam.min.ui.common.Themed
 
 /**
  * Token Studio's `.tool`: a frosted pill (icon, optional text) that sinks when pressed and dims
- * when disabled. Chrome, not design — its icon style is fixed so it stays readable on any theme.
+ * when disabled. Chrome, not design: its type is fixed so it stays readable whatever the tokens say.
  */
 @SuppressLint("ViewConstructor")
 class ToolButton(
     context: Context,
     icon: Icons.Icon,
-    text: String?,
+    private val label: String?,
     description: String,
     private val settings: SettingsStore,
 ) : View(context), Themed {
@@ -41,10 +40,6 @@ class ToolButton(
     private val rect = RectF()
     private val sink = Spring(PRECISION) { scaleX = it; scaleY = it }.also { it.snapTo(1f) }
 
-    /** Replaceable label (Copy → Copied). */
-    var label: String? = text
-        set(value) { field = value; requestLayout(); invalidate() }
-
     init {
         contentDescription = description
         isClickable = true
@@ -55,7 +50,7 @@ class ToolButton(
         ring.color = Theme.withAlpha(theme.text, RING_ALPHA)
         ring.strokeWidth = theme.dp(1f)
         textPaint.color = theme.text
-        drawable.style(theme.text, IconStyle.Outline, STROKE)
+        drawable.style(theme.text)
         invalidate()
     }
 
@@ -96,7 +91,6 @@ class ToolButton(
 
     private companion object {
         const val ICON = 16f
-        const val STROKE = 1.8f
         const val PAD_X = 12f
         const val GAP = 7f
         const val TEXT_SP = 14f

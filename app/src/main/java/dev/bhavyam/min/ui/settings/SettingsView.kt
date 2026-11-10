@@ -100,16 +100,9 @@ class SettingsView(
         private set
 
     /**
-     * Fully behind the studio. Hidden then, so holding the studio's preview shows home, and not
-     * restyled: ~40 rows on every drag frame would be wasted work, so the latest theme is kept and
-     * applied once, as the studio starts to leave.
+     * The latest theme while settings is hidden. The home editor pushes a theme on every touch
+     * frame; restyling ~40 hidden rows each time would be wasted work, so it is applied once, on open.
      */
-    var isCovered = false
-        set(value) {
-            field = value
-            if (isOpen) visibility = if (value) INVISIBLE else VISIBLE
-            if (!value) pendingTheme?.let(::applyTheme)
-        }
     private var pendingTheme: Theme? = null
 
     init {
@@ -158,9 +151,10 @@ class SettingsView(
     }
 
     fun open() {
-        refresh()
         isOpen = true
         visibility = VISIBLE
+        pendingTheme?.let(::applyTheme)
+        refresh()
         spring.animateTo(1f, settings.spring(SettingsRegistry.OVERLAY_MOTION))
     }
 
@@ -207,7 +201,7 @@ class SettingsView(
     }
 
     override fun applyTheme(theme: Theme) {
-        if (isCovered) {
+        if (visibility == GONE) {
             pendingTheme = theme
             return
         }

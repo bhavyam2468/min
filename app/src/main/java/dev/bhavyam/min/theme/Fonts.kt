@@ -10,11 +10,11 @@ import java.nio.channels.FileChannel
 /**
  * Token Studio's type families (the bundled ones are variable fonts from Google Fonts, OFL).
  * Each file is memory-mapped once; any weight is then a cheap instance of that same buffer, which
- * is what lets the studio drag weight continuously.
+ * is what lets the home editor glide weight continuously.
  */
 class Fonts(private val assets: AssetManager) {
 
-    class Family(val name: String, val asset: String?, val cssStack: String)
+    class Family(val name: String, val asset: String?)
 
     private val buffers = arrayOfNulls<ByteBuffer>(ALL.size)
     private val cache = HashMap<Int, Typeface>()
@@ -49,13 +49,13 @@ class Fonts(private val assets: AssetManager) {
         private const val CACHE_LIMIT = 96
 
         val ALL = listOf(
-            Family("System", null, "system-ui, sans-serif"),
-            Family("Inter", "fonts/inter.ttf", "'Inter', system-ui, sans-serif"),
-            Family("Manrope", "fonts/manrope.ttf", "'Manrope', system-ui, sans-serif"),
-            Family("Space Grotesk", "fonts/space_grotesk.ttf", "'Space Grotesk', system-ui, sans-serif"),
-            Family("Nunito", "fonts/nunito.ttf", "'Nunito', system-ui, sans-serif"),
-            Family("Fraunces", "fonts/fraunces.ttf", "'Fraunces', Georgia, serif"),
-            Family("JetBrains Mono", "fonts/jetbrains_mono.ttf", "'JetBrains Mono', ui-monospace, monospace"),
+            Family("System", null),
+            Family("Inter", "fonts/inter.ttf"),
+            Family("Manrope", "fonts/manrope.ttf"),
+            Family("Space Grotesk", "fonts/space_grotesk.ttf"),
+            Family("Nunito", "fonts/nunito.ttf"),
+            Family("Fraunces", "fonts/fraunces.ttf"),
+            Family("JetBrains Mono", "fonts/jetbrains_mono.ttf"),
         )
     }
 }

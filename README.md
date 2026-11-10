@@ -5,7 +5,8 @@ pull down. Everything else is a gesture away.
 
 ## Using it
 
-- **Home** — date and time top-left (12/24 h follows the system), favorites bottom-left.
+- **Home** — date and time top-left (12/24 h follows the system), favorites bottom-left (both
+  movable, see *Customise home*).
   Tap a favorite to open it; long-press for *Remove from favorites* / *App info*.
   Long-press the clock for settings.
 - **Search** — swipe **down** anywhere on home. The keyboard comes up and the input rides right on
@@ -17,12 +18,23 @@ pull down. Everything else is a gesture away.
   (`chtgpt` → ChatGPT), never two.
 - **Settings** — display, customisation, search providers (switch and drag to reorder), animations
   (every spring is tunable), permissions. Settings has its own search.
-- **Token Studio** (Settings → Customisation) — restyle the whole launcher by touching one card:
-  drag its corners for roundness, button edges for padding, fills for colour (tap to change button
-  type), text for typeface and weight, icons for icon style and stroke, the card for light/dark and
-  tint, the space below for elevation; pinch to scale. Undo, redo, surprise me, reset, hold the eye to
-  preview home, and export as `globals.css` or `tokens.json`. Ported from
-  [token-studio](https://github.com/bhavyam2468/token-studio).
+- **Customise home** (Settings → Customisation) — home itself becomes the editor (the idea of
+  [token-studio](https://github.com/bhavyam2468/token-studio), applied in place). Touch, then glide:
+  - **background** — glide up/down for dark ⇄ light, sideways to tint it; pinch to scale everything.
+  - **apps** — glide sideways for hue, up/down for vividness; tap for the next style (plain, solid,
+    soft, outline, ghost, gradient); drag their sides for padding, top/bottom for row spacing,
+    corners for roundness (keep going for a pill); pinch to resize.
+  - **clock** — tap for the next typeface, glide for weight; drag its sides for more or less detail
+    (`2:25` → `Tue, 10  2:25` → … → `Tuesday, 10 November 2026  2:25`), its top/bottom to split it over
+    up to three lines, its corners (or pinch) to resize. Double-tap to type your own format.
+  - **hold** the clock or the apps to lift them, drag, and they snap into one of nine spots
+    (left · centre · right × top · middle · bottom).
+  Undo, redo, surprise me and reset sit at the bottom; the legend chips show where each control lives.
+
+  Clock formats work like KWGT: `d` `dd` day (2, 02) · `D` `DD` weekday (Fri, Friday) · `m` `mm`
+  month (5, 05) · `M` `MM` month name (May, May / Jan, January) · `y` `yy` `yyyy` year (8, 08, 2008) ·
+  `h` `hh` hour (12/24 h follows the system) · `i` `ii` minutes · `a` `A` am/pm. Anything else prints
+  as typed; quote words to keep their letters (`'at' h:ii`). So `D, dd mm yyyy` reads `Fri, 02 05 2008`.
 
 ## Building
 
@@ -30,7 +42,7 @@ Requirements: JDK 17 and the Android SDK (platform 35). No third-party libraries
 
 ```sh
 ./gradlew assembleDebug          # app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest      # fuzzy matcher tests
+./gradlew testDebugUnitTest      # fuzzy matcher and clock format tests
 ```
 
 Android 12 (API 31) or newer. Install, press home, and choose **min**.

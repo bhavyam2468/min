@@ -5,31 +5,19 @@ import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
-import dev.bhavyam.min.theme.IconStyle
-import dev.bhavyam.min.theme.Theme
 
-/**
- * Paints an [Icons.Icon] in the theme's icon style (outline · duotone · filled · sharp) and stroke
- * weight, scaled from the 24-unit grid to its bounds — Token Studio's CSS icon rules, on a canvas.
- */
+/** Strokes an [Icons.Icon] with round caps, scaled from the 24-unit grid to its bounds. */
 class IconDrawable(private val icon: Icons.Icon) : Drawable() {
 
-    private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private var fillAlpha = 0f
+    private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
 
-    /** In the theme's icon style — every icon that belongs to the design. */
-    fun style(theme: Theme, color: Int) = style(color, theme.iconStyle, theme.iconStroke)
-
-    /** In a fixed style — studio chrome, which must stay legible whatever the tokens say. */
-    fun style(color: Int, s: IconStyle, strokeWidth: Float) {
+    fun style(color: Int) {
         stroke.color = color
-        stroke.strokeWidth = strokeWidth
-        stroke.strokeCap = s.cap
-        stroke.strokeJoin = s.join
-        fill.color = color
-        fillAlpha = s.fillAlpha
-        fill.alpha = (fillAlpha * 255).toInt()
         invalidateSelf()
     }
 
@@ -39,22 +27,17 @@ class IconDrawable(private val icon: Icons.Icon) : Drawable() {
         val save = canvas.save()
         canvas.translate(b.left.toFloat(), b.top.toFloat())
         canvas.scale(b.width() / GRID, b.height() / GRID)
-        for (part in icon.parts) {
-            if (!part.isLine && fillAlpha > 0f) canvas.drawPath(part.path, fill)
-            canvas.drawPath(part.path, stroke)
-        }
+        for (path in icon.paths) canvas.drawPath(path, stroke)
         canvas.restoreToCount(save)
     }
 
     override fun setAlpha(alpha: Int) {
         stroke.alpha = alpha
-        fill.alpha = (alpha * fillAlpha).toInt()
         invalidateSelf()
     }
 
     override fun setColorFilter(colorFilter: ColorFilter?) {
         stroke.colorFilter = colorFilter
-        fill.colorFilter = colorFilter
         invalidateSelf()
     }
 
@@ -63,5 +46,7 @@ class IconDrawable(private val icon: Icons.Icon) : Drawable() {
 
     private companion object {
         const val GRID = 24f
+        /** In grid units: 1.8 of 24, Token Studio's default stroke. */
+        const val STROKE = 1.8f
     }
 }

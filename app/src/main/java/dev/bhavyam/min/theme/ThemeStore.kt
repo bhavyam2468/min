@@ -6,12 +6,10 @@ import android.view.Choreographer
 import dev.bhavyam.min.Globals
 import dev.bhavyam.min.motion.Spring
 import dev.bhavyam.min.motion.SpringSpec
-import org.json.JSONException
-import org.json.JSONObject
 
 /**
  * Owns the live [Tokens] and the [Theme] derived from them. Changes are coalesced to one derive +
- * one listener pass per frame, so the studio can push tokens on every touch event.
+ * one listener pass per frame, so the home editor can push tokens on every touch event.
  */
 class ThemeStore(
     private val prefs: SharedPreferences,
@@ -74,14 +72,7 @@ class ThemeStore(
 
     private fun derive() = Theme.derive(tokens, fonts, resources.displayMetrics)
 
-    private fun load(): Tokens {
-        val raw = prefs.getString(KEY, null) ?: return Globals.DEFAULT_TOKENS
-        return try {
-            Tokens.fromJson(JSONObject(raw), Globals.DEFAULT_TOKENS)
-        } catch (_: JSONException) {
-            Globals.DEFAULT_TOKENS
-        }
-    }
+    private fun load(): Tokens = prefs.getString(KEY, null)?.let { Tokens.parse(it, Globals.DEFAULT_TOKENS) } ?: Globals.DEFAULT_TOKENS
 
     private companion object {
         const val KEY = "tokens"

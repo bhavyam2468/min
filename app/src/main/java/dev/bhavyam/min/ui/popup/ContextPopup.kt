@@ -148,7 +148,7 @@ class ContextPopup(context: Context, private val settings: SettingsStore, privat
 
         override fun applyTheme(theme: Theme) {
             style(theme, Globals.Type.POPUP)
-            iconDrawable.style(theme, theme.text)
+            iconDrawable.style(theme.text)
             press.color = theme.pressed
             press.radius = theme.radiusButton
             val size = theme.em(Globals.Type.POPUP * ICON_EM).toInt()

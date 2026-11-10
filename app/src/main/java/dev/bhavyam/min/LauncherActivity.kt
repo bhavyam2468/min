@@ -28,8 +28,8 @@ import dev.bhavyam.min.ui.settings.SettingsView
 import dev.bhavyam.min.ui.studio.StudioView
 
 /**
- * The launcher window. It only assembles the layers (home, search, settings, studio, popup — in
- * that z-order), wires them to the app's data, and decides what back, home and leaving do.
+ * The launcher window. It only assembles the layers (home, search, settings, the home editor,
+ * popup — in that z-order), wires them to the app's data, and decides what back, home and leaving do.
  */
 class LauncherActivity : Activity(), LauncherUi, SettingsHost, HomeView.Host, SearchLayer.Host, ContextPopup.Host {
 
@@ -68,7 +68,7 @@ class LauncherActivity : Activity(), LauncherUi, SettingsHost, HomeView.Host, Se
         home = HomeView(this, app.settings, this)
         search = SearchLayer(this, app.settings, app.engine, this)
         settingsView = SettingsView(this, app.settings, app.targets, this, ::closeSettings)
-        studio = StudioView(this, app.theme, app.settings, ::closeStudio) { settingsView.isCovered = it }
+        studio = StudioView(this, app.theme, app.settings, home, ::closeStudio)
         popup = ContextPopup(this, app.settings, this)
         root = FrameLayout(this).apply {
             for (layer in listOf(home, search, settingsView, studio, popup)) addView(layer, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -176,6 +176,7 @@ class LauncherActivity : Activity(), LauncherUi, SettingsHost, HomeView.Host, Se
 
     override fun openSettings() {
         if (search.isOpen) search.close()
+        if (studio.isOpen) closeStudio()
         settingsView.open()
     }
 
@@ -209,7 +210,11 @@ class LauncherActivity : Activity(), LauncherUi, SettingsHost, HomeView.Host, Se
 
     // ------------------------------------------------------------------ SettingsHost
 
-    override fun openStudio() = studio.open()
+    /** The editor works on home itself, so settings steps aside first. */
+    override fun openStudio() {
+        settingsView.close()
+        studio.open()
+    }
 
     override fun requestPermission(permission: String) {
         requestPermissions(arrayOf(permission), PERMISSION_REQUEST)
@@ -242,10 +247,7 @@ class LauncherActivity : Activity(), LauncherUi, SettingsHost, HomeView.Host, Se
 
     override fun closeSearch() = search.close()
 
-    override fun closeSettings() {
-        if (studio.isOpen) closeStudio()
-        settingsView.close()
-    }
+    override fun closeSettings() = settingsView.close()
 
     override fun run(result: SearchResult) = start(result, null)
 

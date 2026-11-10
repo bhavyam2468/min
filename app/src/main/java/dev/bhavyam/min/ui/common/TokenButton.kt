@@ -8,13 +8,14 @@ import dev.bhavyam.min.Globals
 import dev.bhavyam.min.motion.Spring
 import dev.bhavyam.min.settings.SettingsRegistry
 import dev.bhavyam.min.settings.SettingsStore
+import dev.bhavyam.min.theme.ButtonVariant
 import dev.bhavyam.min.theme.Theme
 
-/** A text button drawn by [ButtonDrawable]; it sinks a little under the finger, on a spring. */
+/** A soft text button in the app colour (drawn by [ButtonDrawable]); it sinks a little under the finger, on a spring. */
 @SuppressLint("ViewConstructor")
-class TokenButton(context: Context, tier: Int, private val settings: SettingsStore) : TextView(context), Themed {
+class TokenButton(context: Context, private val settings: SettingsStore) : TextView(context), Themed {
 
-    private val drawable = ButtonDrawable(tier)
+    private val drawable = ButtonDrawable()
     private val sink = Spring(PRECISION) { scaleX = it; scaleY = it }
 
     init {
@@ -25,7 +26,7 @@ class TokenButton(context: Context, tier: Int, private val settings: SettingsSto
     }
 
     override fun applyTheme(theme: Theme) {
-        drawable.style(theme, if (theme.isPill) Float.MAX_VALUE else theme.radiusButton)
+        drawable.style(theme, ButtonVariant.Soft, if (theme.isPill) Float.MAX_VALUE else theme.radiusButton)
         style(theme, Globals.Type.CHIP, drawable.foreground)
         val padX = theme.em(theme.tokens.padX * Globals.Type.CHIP).toInt()
         val padY = theme.em(theme.tokens.padY * Globals.Type.CHIP).toInt()

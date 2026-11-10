@@ -18,20 +18,21 @@ user prompt ──► programming agent ──► push to branch ──► testi
 |---|---|
 | `Globals.kt` | Every UI variable: default design tokens, type ramp, spacing, alphas, motion defaults. The `globals.css` of the app. |
 | `MinApp.kt` | Process-wide state (settings, theme, favorites, app index, contacts, search engine). Background executor + main handler. |
-| `LauncherActivity.kt` | Puts the layers together (home → search → settings → studio → popup) and decides what back, home and leaving do. |
+| `LauncherActivity.kt` | Puts the layers together (home → search → settings → home editor → popup) and decides what back, home and leaving do. |
 | `LauncherUi.kt` | What the visible launcher exposes to the adb command line. |
 | `motion/Spring.kt`, `motion/RubberBand.kt` | The one damped spring (closed-form, velocity-preserving) used for **every** animation; rubber-band resistance. |
 | `apps/` | App index (`AppIndex`), launch options, usage recency, favorites. |
 | `search/` | `FuzzyMatcher` (the strict matching rules), `Ranker`, the `SearchProvider` interface and its three providers (apps, contacts, fallback), `SearchTargets` (fallback catalogue), `SearchEngine`. |
 | `settings/` | `SettingTypes` (vocabulary), `SettingsRegistry` (every setting, as data), `SettingsStore` (persistence + listeners). |
-| `theme/` | Token Studio's model: `Tokens` → `Theme.derive` (OKLCH colour engine in `Oklch`), fonts, icon styles, button variants, `ThemeStore` (live + persisted), `TokenExport` (CSS / DTCG JSON). |
-| `icons/` | SVG path parser, the icon set, a drawable that paints icons in the theme's icon style. |
-| `ui/home/` | Home: date + time, favorites, the pull-down gesture. |
-| `ui/search/` | Search layer, horizontal column pager, bottom-anchored result columns, keyboard-synced insets. |
+| `theme/` | Token Studio's model, adapted: `Tokens` (look + layout) → `Theme.derive` (OKLCH colour engine in `Oklch`), fonts, button variants, anchors, `ThemeStore` (live + persisted). |
+| `clock/` | `ClockFormat` (the KWGT-like format language) and `ClockPresets` (the shapes the editor steps through when the clock is resized). |
+| `icons/` | SVG path parser, the icon set (stroked outlines), and the drawable that paints them. |
+| `ui/home/` | Home: `ClockView`, `AppsView` (favorites), `Placement` (anchors → positions, pure), `BlockMotion` (move / FLIP / pop springs), the pull-down gesture. |
+| `ui/search/` | Search layer, horizontal column pager, bottom-anchored result columns. |
 | `ui/popup/` | The two-option context menu. |
 | `ui/settings/` | Settings overlay built from the registry; switch, slider, provider list (drag to reorder). |
-| `ui/studio/` | Token Studio: specimen card, editing zones, history, tooltip, ambient light, export sheet. |
-| `ui/common/` | Small shared views/drawables (press highlight, buttons, icon views, max-width layout, text styling). |
+| `ui/studio/` | The home editor, an overlay on the real home: `StudioView` (gestures, lift-and-snap), `StudioZones` (gesture → token maps), `OutlineView`, `ClockEditor` (format sheet), tooltip, history, tool buttons. |
+| `ui/common/` | Small shared views/drawables (press highlight, buttons, icon views, max-width layout, text styling) and `KeyboardInsets` (keeps a view on top of the keyboard frame by frame). |
 | `ui/LaunchBlur.kt` | Blur-to-focus when the launcher returns, blur-out as an app opens. |
 | `cli/` | adb receiver and the command table. |
 
@@ -148,9 +149,17 @@ dev.bhavyam.min` for jank. Screenshots are scratch — describe what they show i
 - Enter runs the top result. Empty query lists all apps, recent first.
 - Settings: every section present, sliders/switches persist, provider drag-reorder persists,
   permission rows grant.
-- Token Studio: every zone edits (corners, button edges, fill drag/tap, text tap/drag, icon tap/drag,
-  surface drag, elevation drag, pinch), undo/redo/shuffle/reset, hold-to-preview, export + copy.
-  The whole launcher restyles.
+- Customise home (Settings → Customisation): settings closes and home becomes the editor (dashed
+  outlines, Done on top, tools + legend at the bottom; home makes room for them). Check every zone:
+  background glide (dark/light, tint) + pinch (scale); apps glide (hue, vividness), tap (style
+  cycles plain → solid → soft → outline → ghost → gradient), side/top/bottom/corner drags (padding,
+  spacing, radius → pill), pinch (size); clock tap (typeface, after the double-tap window), glide
+  (weight), side drags (detail steps with a tick), top/bottom drags (1–3 lines), corner drag + pinch
+  (size), double-tap (format sheet above the keyboard: typing updates the clock live, chips insert
+  fields, add/remove lines, tap outside or ✓ closes). Hold clock/apps ~0.4 s: lifts, nine dots
+  appear, it snaps near a dot with a tick, and glides into place on release; same row → clock
+  stacks above apps. Undo/redo/shuffle/reset glide. Done/back/home closes; everything persists
+  after a restart. Settings and search restyle too.
 - Blur-to-focus on return from an app and on unlock; launcher resets to home after leaving.
 - Rotation, tablet width, display cutout, gesture vs 3-button navigation.
 - Every adb command, including error cases (unknown command, unknown app, bad value).

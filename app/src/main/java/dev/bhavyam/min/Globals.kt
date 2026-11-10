@@ -1,13 +1,15 @@
 package dev.bhavyam.min
 
+import dev.bhavyam.min.clock.ClockPresets
+import dev.bhavyam.min.theme.Anchor
 import dev.bhavyam.min.theme.Tokens
 
 /**
  * Globals — every UI variable of the launcher in one file (the Kotlin twin of a `globals.css`).
  *
  * Two kinds of values live here:
- *  - [DEFAULT_TOKENS]: the design tokens a fresh install starts with. Token Studio edits these live
- *    and `Theme.derive` turns them into colours, radii, spacing, type and icon styles.
+ *  - [DEFAULT_TOKENS]: the look and layout a fresh install starts with. The home editor changes
+ *    them live; `Theme.derive` turns them into colours, radii, spacing and type.
  *  - fixed variables (type ramp, spacing, alphas, motion defaults) that the tokens scale.
  *
  * Views never hardcode a size, colour, alpha or timing: they read from here or from the Theme.
@@ -17,16 +19,14 @@ object Globals {
     /** Pure black, white text, monochrome — the launcher as designed. */
     val DEFAULT_TOKENS = Tokens(
         hue = 268f, chroma = 0f,
-        accentHue = 22f, accentChroma = 0f,
-        neutralHue = 268f, neutralChroma = 0f,
-        surface = 0f,
-        radiusCard = 1.4f, radiusBtn = 0.7f,
-        padX = 1.1f, padY = 0.66f,
+        surface = 0f, tint = 0f,
+        radius = 0.7f, padX = 1.1f, padY = 0.66f,
         font = 0, weight = 400f,
-        iconStyle = 0, iconStroke = 1.8f,
-        variants = listOf(0, 1, 3),
-        elevation = 0.45f,
         scale = 16f,
+        appStyle = 0, appSize = Type.FAVORITE,
+        appAnchor = Anchor.BottomLeft,
+        clock = ClockPresets.DEFAULT, clockSize = Type.CLOCK,
+        clockAnchor = Anchor.TopLeft,
     )
 
     /** Text sizes, as multiples of the `scale` token (sp). */
@@ -41,7 +41,7 @@ object Globals {
         const val ROW = 1f
         const val ROW_SUMMARY = 0.8125f
         const val POPUP = 0.9375f
-        const val CODE = 0.75f
+        const val EDITOR = 1f
         const val CHIP = 0.75f
         const val WHISPER = 0.8125f
 
@@ -52,7 +52,12 @@ object Globals {
     /** Fixed spacing and sizes, in dp. Rows also scale with the padX / padY tokens. */
     object Space {
         const val EDGE = 24f
-        const val CLOCK_GAP = 10f
+        /** Between the clock and the apps when they share a corner. */
+        const val CLOCK_GAP = 28f
+        /** Between clock lines, in em of the clock text. */
+        const val CLOCK_LINE_GAP = 0.12f
+        /** Between app rows that have a background, in em of the app text. */
+        const val APP_ROW_GAP = 0.35f
         const val FAVORITES_BOTTOM = 40f
         const val RESULT_GAP = 0.45f // em of the result text, scaled by the density token
         const val CATEGORY_GAP = 10f
@@ -82,21 +87,27 @@ object Globals {
         const val POPUP_MIN_WIDTH = 208f
         const val POPUP_ICON_GAP = 14f
 
-        /** View elevation at elevation token = 1. */
-        const val ELEVATION_MAX = 28f
+        /** Popups, sheets and the dragged-up providers. */
+        const val ELEVATION = 12f
 
         const val TOOL = 40f
         const val TOOL_GAP = 6f
         const val TOOLTIP_OFFSET = 56f
-        const val CORNER_HANDLE = 44f
-        const val TOUCH_EDGE = 14f
+        /** Touch band at a block's edges (inside and out) that resizes rather than recolours. */
+        const val TOUCH_EDGE = 22f
+        const val OUTLINE_DASH = 6f
+        const val OUTLINE_PAD = 8f
+        const val ANCHOR_DOT = 7f
+        /** How close (dp) a lifted block must come to an anchor to snap to it. */
+        const val MAGNET = 72f
+        const val SHEET_PAD = 20f
     }
 
     /** Opacity of overlays and states. */
     object Alpha {
         const val PRESSED = 0.10f
         const val GLASS = 0.72f
-        const val AMBIENT = 0.55f
+        const val OUTLINE = 0.45f
         const val TOOLTIP = 0.88f
         const val SCRIM = 0.4f
         const val DISABLED = 0.38f
@@ -133,6 +144,9 @@ object Globals {
         const val COMMIT_FRACTION = 0.3f
         const val FLING_VELOCITY = 500f // dp/s that commits a swipe regardless of distance
         const val RUBBER_BAND = 0.55f
-        const val AMBIENT_PERIOD = 22f // seconds per drift cycle
+        /** How long (ms) a finger must rest on a block before it lifts to move. */
+        const val LIFT_DELAY = 420L
+        const val MOVE_STIFFNESS = 600f
+        const val MOVE_BOUNCE = 0.25f
     }
 }

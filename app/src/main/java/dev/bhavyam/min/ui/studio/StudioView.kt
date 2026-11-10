@@ -2,12 +2,11 @@ package dev.bhavyam.min.ui.studio
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.RenderEffect
-import android.graphics.Shader
+import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
-import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.widget.FrameLayout
@@ -20,61 +19,55 @@ import dev.bhavyam.min.motion.Spring
 import dev.bhavyam.min.motion.SpringSpec
 import dev.bhavyam.min.settings.SettingsRegistry
 import dev.bhavyam.min.settings.SettingsStore
+import dev.bhavyam.min.theme.Anchor
 import dev.bhavyam.min.theme.Theme
 import dev.bhavyam.min.theme.ThemeStore
 import dev.bhavyam.min.theme.Tokens
 import dev.bhavyam.min.ui.common.Themed
 import dev.bhavyam.min.ui.common.style
+import dev.bhavyam.min.ui.home.Block
+import dev.bhavyam.min.ui.home.HomeView
 import kotlin.math.hypot
 
 /**
- * Token Studio, full screen. One card; where your finger lands decides what you edit — corners
- * for radius, button edges for padding, fills for colour, text for type, icons for icon style,
- * the card itself for surface, the space below it for elevation; pinch anywhere to scale.
- * Every change restyles the whole launcher live. Undo, redo, surprise and reset sit at the bottom
- * with the legend; hold the eye to see home in the new look, and export as CSS or JSON.
+ * The home editor: Token Studio's idea, played on home itself. This view is a transparent layer
+ * of chrome over the real home screen; where a finger lands decides what it edits —
+ *
+ *  - the background: glide ↕ dark ⇄ light, ↔ tint; pinch to scale everything;
+ *  - the apps: glide ↔ hue, ↕ vividness; tap for the next button style; their sides, ends and
+ *    corners set padding and radius; pinch to resize;
+ *  - the clock: tap for the next typeface, glide for weight, double-tap to write its format; its
+ *    sides add or remove detail, its top and bottom split it into lines, its corners resize it;
+ *  - hold the clock or the apps to lift it, drag, and it snaps into one of nine spots.
+ *
+ * Every change restyles home live. Undo, redo, surprise and reset sit at the bottom with the legend.
  */
 @SuppressLint("ViewConstructor")
 class StudioView(
     context: Context,
     private val themes: ThemeStore,
     private val settings: SettingsStore,
+    private val home: HomeView,
     private val onClose: () -> Unit,
-    /** True once the studio fully covers what's beneath it, false as soon as it starts to leave. */
-    private val onCovering: (Boolean) -> Unit,
 ) : FrameLayout(context), Themed {
 
     private val d = resources.displayMetrics.density
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private val doubleTapMillis = ViewConfiguration.getDoubleTapTimeout().toLong()
 
-    private val ambient = AmbientView(context)
-    private val card = StudioCard(context, settings)
+    private val outlines = OutlineView(context, home)
     private val tip = TooltipView(context).apply { alpha = 0f }
     private val whisper = TextView(context).apply {
-        text = "Touch anything on the card — then drag or tap."
+        text = "Touch anything on home — glide, tap, pinch or hold."
         gravity = Gravity.CENTER
     }
 
-    // top bar
-    private val back = ToolButton(context, Icons.back, null, "Back", settings).apply { setOnClickListener { onClose() } }
-    private val mark = View(context)
-    private val markBackground = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0, 0))
-    private val title = TextView(context).apply { text = "Token Studio" }
-    private val preview = ToolButton(context, Icons.eye, null, "Hold to preview", settings)
-    private val export = ToolButton(context, Icons.code, "Export", "Export tokens", settings)
-    private val topBar = LinearLayout(context).apply {
-        gravity = Gravity.CENTER_VERTICAL
-        addView(back)
-        addView(mark)
-        addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        addView(preview)
-        addView(export)
-    }
+    private val done = ToolButton(context, Icons.check, "Done", "Done", settings).apply { setOnClickListener { onClose() } }
+    private val topBar = FrameLayout(context).apply { addView(done, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER)) }
 
-    // bottom: history tools + legend
     private val undo = ToolButton(context, Icons.undo, null, "Undo", settings).apply { setOnClickListener { step(history?.undo()) } }
     private val redo = ToolButton(context, Icons.redo, null, "Redo", settings).apply { setOnClickListener { step(history?.redo()) } }
-    private val shuffle = ToolButton(context, Icons.shuffle, null, "Surprise me", settings).apply { setOnClickListener { jump(Tokens.random()) } }
+    private val shuffle = ToolButton(context, Icons.shuffle, null, "Surprise me", settings).apply { setOnClickListener { jump(Tokens.random(themes.tokens)) } }
     private val reset = ToolButton(context, Icons.reset, null, "Reset", settings).apply { setOnClickListener { jump(Globals.DEFAULT_TOKENS) } }
     private val tools = listOf(undo, redo, shuffle, reset)
     private val toolRow = LinearLayout(context).apply {
@@ -98,7 +91,7 @@ class StudioView(
         addView(legendScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
     }
 
-    private val sheet = ExportSheet(context, settings, themes.fonts)
+    private val clockEditor = ClockEditor(context, themes, settings) { commit() }
 
     private var theme: Theme? = null
     private var history: StudioHistory? = null
@@ -106,11 +99,29 @@ class StudioView(
     // the edit in progress
     private var hit: Hit? = null
     private var start: Tokens = themes.tokens
+    private val drag = Drag()
     private var downX = 0f
     private var downY = 0f
     private var dragging = false
     private var pinchSpan = 0f
     private var whisperGone = false
+    private val rect = RectF()
+
+    // moving a block
+    private var lifted: Block? = null
+    private val liftHome = RectF()
+    private val targets = Array(Anchor.entries.size) { RectF() }
+    private var snapped = -1
+    private val liftTimer = Runnable { lift() }
+
+    /** A single tap on the clock waits out the double-tap window before changing the typeface. */
+    private var fontTapPending = false
+    private val fontTap = Runnable {
+        fontTapPending = false
+        Zone.Typeface.tap(themes.tokens)?.let(themes::update)
+        home.motion(Block.Clock).pop()
+        post(::commit)
+    }
 
     private val tipX = Spring(TIP_PRECISION) { tip.translationX = it }
     private val tipY = Spring(TIP_PRECISION) { tip.translationY = it }
@@ -127,57 +138,34 @@ class StudioView(
     }
     private val linger = Runnable { endFocus() }
 
-    /** Studio in/out: content rises into focus out of a blur, chrome slides in from the edges. */
+    /** Editor in/out: chrome slides in from the edges and home makes room for it. */
     private val presence = Spring(PRECISION, ::applyPresence)
-
-    /** Hold-to-preview: fades the studio away to show home beneath. */
-    private val peek = Spring(PRECISION) { stage.alpha = 1f - it.coerceIn(0f, 1f) }
-
-    private val stage = FrameLayout(context).apply {
-        addView(ambient)
-        addView(card)
-        addView(whisper, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-        addView(topBar, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.TOP))
-        addView(bottomBar, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
-        addView(tip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
-    }
 
     var isOpen = false
         private set
 
     init {
         visibility = GONE
-        isClickable = true
-        addView(stage)
-        addView(sheet)
-        export.setOnClickListener { sheet.show() }
-        preview.setOnTouchListener { v, e ->
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> peek.animateTo(1f, settings.spring(SettingsRegistry.OVERLAY_MOTION))
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> peek.animateTo(0f, settings.spring(SettingsRegistry.OVERLAY_MOTION))
-            }
-            v.isPressed = e.actionMasked == MotionEvent.ACTION_DOWN || e.actionMasked == MotionEvent.ACTION_MOVE
-            true
-        }
-        // The ambient light runs under the system bars; everything else stays inside the safe area.
+        addView(outlines)
+        addView(whisper, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        addView(topBar, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.TOP))
+        addView(bottomBar, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
+        addView(tip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        addView(clockEditor)
+        home.onBlocksMoved = { if (visibility == VISIBLE) outlines.invalidate() }
         setOnApplyWindowInsetsListener { _, insets ->
             val p = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
             (topBar.layoutParams as MarginLayoutParams).setMargins(p.left, p.top, p.right, 0)
             (bottomBar.layoutParams as MarginLayoutParams).setMargins(p.left, 0, p.right, p.bottom)
-            (sheet.layoutParams as MarginLayoutParams).setMargins(p.left, p.top, p.right, p.bottom)
-            // the card centres in the space the bars leave (the bottom one holds two rows)
-            val bar = ((Globals.Space.TOOL + Globals.Space.EDGE) * d).toInt()
-            (card.layoutParams as MarginLayoutParams).setMargins(p.left, p.top + bar, p.right, p.bottom + bar * 2)
             requestLayout()
             insets
         }
     }
 
-    /** The whisper floats just above the card, wherever the tokens have put it. */
+    /** Home keeps clear of the bars, so nothing being edited hides behind them. */
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
-        val y = (card.top + card.cardTop - whisper.measuredHeight - Globals.Space.EDGE * d).toInt()
-        whisper.layout(0, y, stage.width, y + whisper.measuredHeight)
+        home.setEditRoom(topBar.bottom, height - bottomBar.top, presence.value.coerceAtLeast(0f))
     }
 
     fun open() {
@@ -187,129 +175,256 @@ class StudioView(
         visibility = VISIBLE
         whisperGone = false
         whisperFade.snapTo(1f)
-        presence.onRest = { if (isOpen) onCovering(true) }
         presence.animateTo(1f, settings.spring(SettingsRegistry.OVERLAY_MOTION))
     }
 
     fun close() {
         isOpen = false
-        onCovering(false)
+        clockEditor.close()
+        cancelGesture()
         endFocus()
-        sheet.hide()
         presence.animateTo(0f, settings.spring(SettingsRegistry.OVERLAY_MOTION))
     }
 
     /** Gone at once (the launcher went to the background). */
     fun reset() {
         isOpen = false
-        onCovering(false)
+        clockEditor.reset()
+        cancelGesture()
         endFocus()
-        sheet.reset()
-        peek.snapTo(0f)
         presence.snapTo(0f)
+        home.resetMotion()
     }
 
-    /** Back: the export sheet first, then the studio itself. */
+    /** Back: the clock sheet first, then the editor itself. */
     fun back(): Boolean = when {
-        sheet.isShowing -> { sheet.hide(); true }
+        clockEditor.isOpen -> { clockEditor.close(); true }
         isOpen -> { onClose(); true }
         else -> false
     }
 
     private fun applyPresence(p: Float) {
-        val a = p.coerceIn(0f, 1f)
-        alpha = a
+        alpha = p.coerceIn(0f, 1f)
         if (p <= 0f && !isOpen) {
             visibility = GONE
             history = null
         }
         val away = 1f - p
-        card.translationY = away * ARRIVE_RISE * d
-        val s = 1f - away * ARRIVE_SHRINK
-        card.scaleX = s
-        card.scaleY = s
-        val blur = (1f - a) * ARRIVE_BLUR * d
-        card.setRenderEffect(if (blur >= MIN_BLUR) RenderEffect.createBlurEffect(blur, blur, Shader.TileMode.DECAL) else null)
         topBar.translationY = -away * CHROME_SLIDE * d
         bottomBar.translationY = away * CHROME_SLIDE * d
+        home.setEditRoom(topBar.bottom, height - bottomBar.top, p.coerceAtLeast(0f))
     }
 
     // ------------------------------------------------------------------ editing
 
+    /** The block and part under ([x], [y]); a block the point is inside wins over one it's merely near. */
+    private fun locate(x: Float, y: Float): Pair<Block?, Part> {
+        var near: Pair<Block, Part>? = null
+        for (block in Block.entries) {
+            home.bounds(block, rect)
+            val part = Part.at(rect, x, y, Globals.Space.TOUCH_EDGE * d, Globals.Space.TOUCH_EDGE * d / 2) ?: continue
+            if (rect.contains(x, y)) return block to part
+            if (near == null) near = block to part
+        }
+        return near ?: (null to Part.Body)
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
-        val x = e.x - card.left
-        val y = e.y - card.top
         when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                removeCallbacks(linger)
-                downX = x
-                downY = y
-                dragging = false
-                pinchSpan = 0f
-                start = themes.tokens
-                hit = card.hitAt(x, y)
-                if (hit != null) {
-                    dismissWhisper()
-                    focus(x, y)
-                }
-            }
-            MotionEvent.ACTION_POINTER_DOWN -> if (e.pointerCount == 2) {
-                // a second finger turns any gesture into a pinch on the scale token
-                pinchSpan = span(e)
-                start = themes.tokens
-                hit = Hit(Zone.Surface)
-                dragging = true
-                dismissWhisper()
-                hintFold.animateTo(0f, settings.spring(SettingsRegistry.CONTROL_MOTION))
-            }
-            MotionEvent.ACTION_MOVE -> {
-                val h = hit ?: return true
-                if (pinchSpan > 0f && e.pointerCount >= 2) {
-                    val scale = (start.scale * span(e) / pinchSpan).coerceIn(Tokens.SCALE_MIN, Tokens.SCALE_MAX)
-                    themes.update(themes.tokens.copy(scale = scale))
-                    focus((e.getX(0) + e.getX(1)) / 2 - card.left, (e.getY(0) + e.getY(1)) / 2 - card.top)
-                    return true
-                }
-                if (pinchSpan > 0f) return true // one finger left after a pinch: wait for the lift
-                if (!dragging && hypot(x - downX, y - downY) > touchSlop) {
-                    dragging = true
-                    parent.requestDisallowInterceptTouchEvent(true)
-                    hintFold.animateTo(0f, settings.spring(SettingsRegistry.CONTROL_MOTION))
-                }
-                if (dragging) {
-                    themes.update(h.zone.drag((x - downX) / d * TOUCH_GAIN, (y - downY) / d * TOUCH_GAIN, start, h))
-                    focus(x, y)
-                }
-            }
-            MotionEvent.ACTION_UP -> {
-                val h = hit
-                if (h != null && !dragging) h.zone.tap(themes.tokens, h)?.let(themes::update)
+            MotionEvent.ACTION_DOWN -> down(e.x, e.y)
+            MotionEvent.ACTION_POINTER_DOWN -> if (e.pointerCount == 2 && lifted == null) startPinch(e)
+            MotionEvent.ACTION_MOVE -> move(e)
+            MotionEvent.ACTION_UP -> up()
+            MotionEvent.ACTION_CANCEL -> {
+                cancelGesture()
                 finishEdit()
             }
-            MotionEvent.ACTION_CANCEL -> finishEdit()
         }
         return true
     }
 
+    private fun down(x: Float, y: Float) {
+        removeCallbacks(linger)
+        downX = x
+        downY = y
+        dragging = false
+        pinchSpan = 0f
+        start = themes.tokens
+        val (block, part) = locate(x, y)
+        hit = Hit(Zone.of(block, part), block, part)
+        if (block != null) {
+            home.bounds(block, rect)
+            drag.width = rect.width() / d
+            drag.height = rect.height() / d
+            if (part == Part.Body) postDelayed(liftTimer, Globals.Motion.LIFT_DELAY)
+        }
+        dismissWhisper()
+        focus(x, y)
+    }
+
+    /** A second finger turns any gesture into a pinch on what the first one touched. */
+    private fun startPinch(e: MotionEvent) {
+        removeCallbacks(liftTimer)
+        pinchSpan = span(e)
+        start = themes.tokens
+        val block = hit?.block
+        hit = Hit(Zone.pinchOf(block), block)
+        dragging = true
+        hintFold.animateTo(0f, settings.spring(SettingsRegistry.CONTROL_MOTION))
+    }
+
+    private fun move(e: MotionEvent) {
+        val h = hit ?: return
+        if (lifted != null) {
+            moveLifted(e.x, e.y)
+            return
+        }
+        if (pinchSpan > 0f) {
+            if (e.pointerCount >= 2) {
+                h.zone.pinch(start, span(e) / pinchSpan)?.let(themes::update)
+                focus((e.getX(0) + e.getX(1)) / 2, (e.getY(0) + e.getY(1)) / 2)
+            }
+            return // one finger left after a pinch: wait for the lift
+        }
+        if (!dragging && hypot(e.x - downX, e.y - downY) > touchSlop) {
+            dragging = true
+            removeCallbacks(liftTimer)
+            parent.requestDisallowInterceptTouchEvent(true)
+            hintFold.animateTo(0f, settings.spring(SettingsRegistry.CONTROL_MOTION))
+        }
+        if (!dragging) return
+        drag.dx = (e.x - downX) / d * TOUCH_GAIN
+        drag.dy = (e.y - downY) / d * TOUCH_GAIN
+        val next = h.zone.drag(drag, start, h)
+        if (next.clock != themes.tokens.clock) performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) // a detail or line step
+        themes.update(next)
+        focus(e.x, e.y)
+    }
+
+    private fun up() {
+        removeCallbacks(liftTimer)
+        val h = hit
+        when {
+            lifted != null -> drop()
+            h == null || dragging -> Unit
+            h.zone == Zone.Typeface -> if (fontTapPending) {
+                removeCallbacks(fontTap)
+                fontTapPending = false
+                endFocus()
+                clockEditor.open()
+            } else {
+                fontTapPending = true
+                postDelayed(fontTap, doubleTapMillis)
+            }
+            else -> h.zone.tap(themes.tokens)?.let { next ->
+                themes.update(next)
+                h.block?.let { home.motion(it).pop() }
+            }
+        }
+        finishEdit()
+    }
+
     private fun span(e: MotionEvent) = hypot(e.getX(0) - e.getX(1), e.getY(0) - e.getY(1))
+
+    // ------------------------------------------------------------------ moving a block
+
+    /** Held still long enough: the block lifts, and the spots it can go to appear. */
+    private fun lift() {
+        val h = hit ?: return
+        val block = h.block ?: return
+        lifted = block
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        home.layoutBounds(block, liftHome)
+        for (a in Anchor.entries) home.candidate(block, a, targets[a.ordinal])
+        home.motion(block).lift(true)
+        val current = anchorOf(block, themes.tokens)
+        snapped = current.ordinal
+        hit = h.copy(zone = Zone.Move, anchor = current)
+        outlines.setTargets(targets, snapped)
+        hintFold.animateTo(1f, settings.spring(SettingsRegistry.CONTROL_MOTION))
+        focus(downX, downY)
+    }
+
+    /** The block follows the finger, and is pulled onto any spot it comes close to. */
+    private fun moveLifted(x: Float, y: Float) {
+        val block = lifted ?: return
+        val fx = x - downX
+        val fy = y - downY
+        val cx = liftHome.centerX() + fx
+        val cy = liftHome.centerY() + fy
+        var nearest = 0
+        var best = Float.MAX_VALUE
+        for (i in targets.indices) {
+            val dist = hypot(targets[i].centerX() - cx, targets[i].centerY() - cy)
+            if (dist < best) {
+                best = dist
+                nearest = i
+            }
+        }
+        val inReach = best < Globals.Space.MAGNET * d
+        val motion = home.motion(block)
+        if (inReach) motion.follow(targets[nearest].left - liftHome.left, targets[nearest].top - liftHome.top)
+        else motion.follow(fx, fy)
+        val reach = if (inReach) nearest else -1
+        if (reach != snapped) {
+            if (inReach) performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            snapped = reach
+            outlines.setTargets(targets, snapped)
+        }
+        val anchor = Anchor.entries[nearest]
+        if (hit?.anchor != anchor) hit = hit?.copy(anchor = anchor)
+        focus(x, y)
+    }
+
+    /** Let go: the block goes to the nearest spot (gliding there from where it was dropped). */
+    private fun drop() {
+        val block = lifted ?: return
+        lifted = null
+        outlines.setTargets(null, -1)
+        val motion = home.motion(block)
+        motion.lift(false)
+        motion.follow(0f, 0f)
+        val anchor = hit?.anchor ?: return
+        val t = themes.tokens
+        themes.update(if (block == Block.Clock) t.copy(clockAnchor = anchor) else t.copy(appAnchor = anchor))
+    }
+
+    private fun anchorOf(block: Block, t: Tokens) = if (block == Block.Clock) t.clockAnchor else t.appAnchor
+
+    /** Drop whatever the finger was doing, without applying it. */
+    private fun cancelGesture() {
+        removeCallbacks(liftTimer)
+        removeCallbacks(fontTap)
+        fontTapPending = false
+        lifted?.let {
+            lifted = null
+            outlines.setTargets(null, -1)
+            home.motion(it).lift(false)
+            home.motion(it).follow(0f, 0f)
+        }
+    }
+
+    // ------------------------------------------------------------------ tooltip, history, legend
 
     private fun finishEdit() {
         if (hit == null) return
         dragging = false
         hintFold.animateTo(1f, settings.spring(SettingsRegistry.CONTROL_MOTION))
-        // the tap's change lands on the next frame; record it after that
-        post {
-            if (history?.commit(themes.tokens) == true) themes.save()
-            syncHistory()
-        }
+        post(::commit) // the change lands on the next frame; record it after that
         postDelayed(linger, LINGER_MILLIS)
     }
 
-    /** Point the highlight and the tip at [hit], with the tip near ([x], [y]) in card coordinates. */
+    /** Record the current tokens as a step in history and keep them. */
+    private fun commit() {
+        if (history?.commit(themes.tokens) == true) themes.save()
+        syncHistory()
+    }
+
+    /** Point the highlight and the tip at [hit], with the tip near ([x], [y]). */
     private fun focus(x: Float, y: Float) {
         val h = hit ?: return
-        card.highlight(h, dragging)
+        outlines.highlight(h)
         refreshTooltip()
         placeTooltip(x, y)
         tipShow.animateTo(1f, settings.spring(SettingsRegistry.CONTROL_MOTION))
@@ -317,7 +432,7 @@ class StudioView(
 
     private fun endFocus() {
         hit = null
-        card.highlight(null, false)
+        outlines.highlight(null)
         tipShow.animateTo(0f, settings.spring(SettingsRegistry.CONTROL_MOTION))
         chips.forEach { it.setOn(false) }
     }
@@ -325,23 +440,22 @@ class StudioView(
     private fun refreshTooltip() {
         val h = hit ?: return
         val theme = theme ?: return
-        tip.set(h.zone.label(h), h.zone.value(themes.tokens, h), h.zone.hint(h), h.zone.swatch(theme, h))
+        tip.set(h.zone.label(h), h.zone.value(themes.tokens, h), h.zone.hint(h), h.zone.swatch(theme))
         chips.forEach { it.setOn(it.legend == h.zone.legend) }
     }
 
-    /** Above the finger (a finger hides what's under it), centred, kept on screen. */
+    /** Above the finger (a finger hides what's under it), centred on it, kept on screen. */
     private fun placeTooltip(x: Float, y: Float) {
         val w = tip.width.takeIf { it > 0 } ?: (TIP_GUESS_W * d).toInt()
         val h = tip.height.takeIf { it > 0 } ?: (TIP_GUESS_H * d).toInt()
         val offset = Globals.Space.TOOLTIP_OFFSET * d
         val margin = Globals.Space.EDGE * d / 2
-        val px = card.left + x
-        val py = card.top + y
-        val tx = (px - w / 2f).coerceIn(margin, (stage.width - w - margin).coerceAtLeast(margin))
-        val above = py - offset - h
-        val ty = if (above >= card.top) above else py + offset
-        tip.pivotX = (px - tx).coerceIn(0f, w.toFloat())
-        tip.pivotY = if (above >= card.top) h.toFloat() else 0f
+        val tx = (x - w / 2f).coerceIn(margin, (width - w - margin).coerceAtLeast(margin))
+        val above = y - offset - h
+        val fitsAbove = above >= topBar.bottom
+        val ty = if (fitsAbove) above else y + offset
+        tip.pivotX = (x - tx).coerceIn(0f, w.toFloat())
+        tip.pivotY = if (fitsAbove) h.toFloat() else 0f
         val spec = SpringSpec(TIP_STIFFNESS, 1f)
         if (tip.alpha <= 0f) {
             tipX.snapTo(tx)
@@ -377,47 +491,34 @@ class StudioView(
         redo.isEnabled = history?.canRedo == true
     }
 
-    /** Legend chips: tap one to see where that family of controls lives on the card. */
+    /** Legend chips: tap one to see where that family of controls lives on home. */
     private fun showLegend(legend: Legend) {
         removeCallbacks(linger)
+        val t = themes.tokens
         hit = when (legend) {
-            Legend.Corners -> Hit(Zone.CardRadius, corner = Corner.TR)
-            Legend.Padding -> Hit(Zone.PadX, edge = Edge.Right, tier = 0)
-            Legend.Fill -> Hit(Zone.Color, tier = 0)
-            Legend.Text -> Hit(Zone.Font, tier = -1)
-            Legend.Icons -> Hit(Zone.Icon, tier = 1)
-            Legend.Surface -> Hit(Zone.Surface)
-            Legend.Shadow -> Hit(Zone.Elevation)
+            Legend.Background -> Hit(Zone.Background)
+            Legend.Apps -> Hit(Zone.AppColor, Block.Apps)
+            Legend.Edges -> Hit(Zone.ClockDetail, Block.Clock, Part.Right)
+            Legend.Clock -> Hit(Zone.Typeface, Block.Clock)
+            Legend.Move -> Hit(Zone.Move, Block.Apps, anchor = t.appAnchor)
         }
         dismissWhisper()
-        card.highlight(hit, false)
-        refreshTooltip()
-        placeTooltip(card.width / 2f, card.cardTop)
-        tipShow.animateTo(1f, settings.spring(SettingsRegistry.CONTROL_MOTION))
+        val block = hit?.block
+        if (block != null) home.bounds(block, rect) else rect.set(0f, 0f, width.toFloat(), height.toFloat())
+        focus(rect.centerX(), rect.centerY())
         postDelayed(linger, LINGER_MILLIS * 2)
     }
 
     override fun applyTheme(theme: Theme) {
         this.theme = theme
-        ambient.applyTheme(theme)
-        card.applyTheme(theme)
+        outlines.applyTheme(theme)
         whisper.style(theme, Globals.Type.WHISPER, theme.muted)
-        title.style(theme, Globals.Type.ROW, strong = true)
-        markBackground.colors = intArrayOf(theme.primary.gradientStart, theme.primary.gradientEnd)
-        markBackground.cornerRadius = (theme.radiusButton * MARK_SHAPE).coerceAtMost(MARK_SIZE * d / 2) // a button in miniature
-        mark.background = markBackground
         val gap = (Globals.Space.TOOL_GAP * d).toInt()
         val edge = (Globals.Space.EDGE * d).toInt()
-        (mark.layoutParams as MarginLayoutParams).apply {
-            width = (MARK_SIZE * d).toInt()
-            height = width
-            marginStart = edge / 2
-            marginEnd = gap * 2
-        }
-        topBar.setPadding(edge * 2 / 3, edge * 2 / 3, edge * 2 / 3, 0)
+        topBar.setPadding(0, edge * 2 / 3, 0, 0)
         bottomBar.setPadding(0, 0, 0, edge * 2 / 3)
-        for (v in listOf(back, preview, export) + tools) v.applyTheme(theme)
-        for (v in listOf(export) + tools.drop(1)) (v.layoutParams as MarginLayoutParams).marginStart = gap
+        for (v in listOf(done) + tools) v.applyTheme(theme)
+        for (v in tools.drop(1)) (v.layoutParams as MarginLayoutParams).marginStart = gap
         (legendScroll.layoutParams as MarginLayoutParams).topMargin = gap * 2
         legendBackground.setColor(Theme.withAlpha(theme.surface, LEGEND_GLASS))
         legendBackground.setStroke(d.toInt().coerceAtLeast(1), Theme.withAlpha(theme.text, LEGEND_RING))
@@ -425,14 +526,11 @@ class StudioView(
         val inset = (LEGEND_INSET * d).toInt()
         legend.setPadding(inset, inset, inset, inset)
         chips.forEach { it.applyTheme(theme) }
-        sheet.applyTheme(theme)
-        if (hit != null) {
-            refreshTooltip()
-            card.highlight(hit, dragging)
-        }
+        clockEditor.applyTheme(theme)
+        if (hit != null) refreshTooltip()
     }
 
-    /** A legend chip: "Corners drag". Filled with the text colour while its zone is in use. */
+    /** A legend chip: "Apps  tap · glide · pinch". Filled with the text colour while its zone is in use. */
     @SuppressLint("ViewConstructor")
     private inner class LegendChip(context: Context, val legend: Legend) : TextView(context), Themed {
         private val fill = GradientDrawable().apply { cornerRadius = Float.MAX_VALUE }
@@ -467,7 +565,7 @@ class StudioView(
     }
 
     private companion object {
-        const val TOUCH_GAIN = 1.4f // fingers travel less than a mouse; the studio's gains are per pointer px
+        const val TOUCH_GAIN = 1.4f // fingers travel less than a mouse; Token Studio's gains are per pointer px
         const val LINGER_MILLIS = 1100L
         const val TIP_STIFFNESS = 900f
         const val TIP_SCALE_FROM = 0.94f
@@ -476,13 +574,7 @@ class StudioView(
         const val TIP_PRECISION = 0.5f
         const val PRECISION = 0.001f
         const val WHISPER_RISE = 8f
-        const val ARRIVE_RISE = 18f
-        const val ARRIVE_SHRINK = 0.03f
-        const val ARRIVE_BLUR = 6f
-        const val MIN_BLUR = 0.5f
         const val CHROME_SLIDE = 24f
-        const val MARK_SIZE = 22f
-        const val MARK_SHAPE = 0.625f
         const val LEGEND_GLASS = 0.65f
         const val LEGEND_RING = 0.08f
         const val LEGEND_INSET = 5f

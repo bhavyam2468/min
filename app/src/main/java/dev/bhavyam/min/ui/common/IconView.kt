@@ -19,7 +19,7 @@ open class IconView(
     private val drawable = IconDrawable(icon)
 
     override fun applyTheme(theme: Theme) {
-        drawable.style(theme, if (muted) theme.muted else theme.text)
+        drawable.style(if (muted) theme.muted else theme.text)
         invalidate()
     }
 

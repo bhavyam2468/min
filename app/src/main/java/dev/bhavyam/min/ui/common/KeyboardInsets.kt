@@ -1,4 +1,4 @@
-package dev.bhavyam.min.ui.search
+package dev.bhavyam.min.ui.common
 
 import android.graphics.Insets
 import android.view.View
