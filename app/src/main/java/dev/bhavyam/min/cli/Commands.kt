@@ -102,7 +102,8 @@ class Commands(private val app: MinApp) {
         val engine = app.engine
         val previous = engine.query.text
         engine.search(query)
-        val text = engine.columns.filter { it.provider.isAvailable }.joinToString("\n") { column ->
+        val best = "best: " + engine.columns[engine.best].provider.label.lowercase() + "\n"
+        val text = best + engine.columns.filter { it.provider.isAvailable }.joinToString("\n") { column ->
             val lines = column.results.take(RESULT_LIMIT).joinToString("") { "\n  ${it.title}" }
             column.provider.label.uppercase() + lines.ifEmpty { "\n  (none)" }
         }

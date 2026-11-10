@@ -18,6 +18,9 @@ interface SearchProvider {
     /** Whether the column exists right now (contacts need their permission). */
     val isAvailable: Boolean
 
-    /** Append results to [out], best match first. An empty query means "browse". */
-    fun query(query: Query, out: MutableList<SearchResult>)
+    /**
+     * Append results to [out], best match first, and return the best one's [FuzzyMatcher] score —
+     * [FuzzyMatcher.NO_MATCH] when nothing actually matched (browsing an empty query, fallbacks).
+     */
+    fun query(query: Query, out: MutableList<SearchResult>): Int
 }

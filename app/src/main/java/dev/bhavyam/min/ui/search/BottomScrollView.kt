@@ -7,6 +7,10 @@ import android.widget.ScrollView
  * A viewport-filling scroll view whose content is bottom-gravity: short lists sit on the bottom
  * edge by layout alone. When content is taller than the viewport, it stays anchored to the bottom
  * (the best matches) until the user scrolls away, and re-anchors on every new result set.
+ *
+ * Both edges fade the rows out as they leave, so a scrolling list looks like it goes somewhere.
+ * Each fade grows with how far there is to scroll that way: at rest on the best match the bottom
+ * fade is gone, and the best match sits crisp on the category label.
  */
 class BottomScrollView(context: Context) : ScrollView(context) {
 
@@ -35,7 +39,4 @@ class BottomScrollView(context: Context) : ScrollView(context) {
         super.onScrollChanged(l, t, oldl, oldt)
         anchored = t >= maxScroll
     }
-
-    /** No fade at the bottom edge: the best match sits right on the category label. */
-    override fun getBottomFadingEdgeStrength() = 0f
 }

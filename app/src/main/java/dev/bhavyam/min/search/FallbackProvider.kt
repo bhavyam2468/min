@@ -20,13 +20,15 @@ class FallbackProvider(private val targets: SearchTargets) : SearchProvider {
     override val label = "Search"
     override val isAvailable get() = true
 
-    override fun query(query: Query, out: MutableList<SearchResult>) {
-        if (query.isEmpty) return
+    /** Offers, not matches: always [FuzzyMatcher.NO_MATCH], so any real match elsewhere wins. */
+    override fun query(query: Query, out: MutableList<SearchResult>): Int {
+        if (query.isEmpty) return FuzzyMatcher.NO_MATCH
         for (target in targets.active) {
             val result = results.getOrPut(target.id) { TargetResult(target) }
             result.query = query.text
             result.title = "Search ${query.text} on ${target.name}"
             out += result
         }
+        return FuzzyMatcher.NO_MATCH
     }
 }

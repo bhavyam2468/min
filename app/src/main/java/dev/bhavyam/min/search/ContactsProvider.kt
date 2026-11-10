@@ -7,7 +7,9 @@ class ContactsProvider(private val source: ContactsSource) : SearchProvider {
     override val label = "Contacts"
     override val isAvailable get() = source.isAllowed
 
-    override fun query(query: Query, out: MutableList<SearchResult>) {
-        if (query.isEmpty) out.addAll(source.contacts) else ranker.rank(query.normalized, source.contacts, out)
+    override fun query(query: Query, out: MutableList<SearchResult>): Int {
+        if (!query.isEmpty) return ranker.rank(query.normalized, source.contacts, out)
+        out.addAll(source.contacts)
+        return FuzzyMatcher.NO_MATCH
     }
 }

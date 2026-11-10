@@ -14,6 +14,8 @@ pull down. Everything else is a gesture away.
   **apps**, **contacts** (once allowed) and **search** (send the query to the web or to apps like
   YouTube, Spotify, Maps, Play Store…). Enter opens the top result; swipe **up** to go back.
   Empty search lists every app, most recently used first. Long-press an app result for the menu.
+  Search is universal: as you type it slides to whichever category has the closest match (type
+  `aa` and contact *Aarav* beats app *Adobe Scan*). Lists fade out at their edges as they scroll.
 - **Matching** — forgiving but strict: exact text wins, then word starts, then exactly one typo
   (`chtgpt` → ChatGPT), never two.
 - **Settings** — display, customisation, search providers (switch and drag to reorder), animations

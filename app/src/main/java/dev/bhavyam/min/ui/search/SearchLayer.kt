@@ -21,6 +21,7 @@ import dev.bhavyam.min.Globals
 import dev.bhavyam.min.apps.AppEntry
 import dev.bhavyam.min.motion.Spring
 import dev.bhavyam.min.motion.rubberBand
+import dev.bhavyam.min.search.FuzzyMatcher
 import dev.bhavyam.min.search.SearchEngine
 import dev.bhavyam.min.search.SearchResult
 import dev.bhavyam.min.settings.SettingsRegistry
@@ -99,7 +100,10 @@ class SearchLayer(
         input.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) = Unit
-            override fun afterTextChanged(s: Editable) = refresh()
+            override fun afterTextChanged(s: Editable) {
+                refresh()
+                followBest()
+            }
         })
         input.setOnEditorActionListener { _, actionId, event ->
             val enter = actionId == EditorInfo.IME_ACTION_SEARCH ||
@@ -118,6 +122,31 @@ class SearchLayer(
             page.bind(column.results)
         }
         pager.requestLayout()
+    }
+
+    /**
+     * Search is universal: as the query changes, glide to the column with the closest result
+     * (typing "aa" on apps moves to contacts if Aarav beats every app). A column that matches
+     * exactly as well as the best one is kept, so equal matches don't bounce you around.
+     */
+    private fun followBest() {
+        val best = engine.columns[engine.best]
+        val shown = engine.columns.getOrNull(columnAt(pager.current))
+        if (shown != null && shown !== best && shown.score > FuzzyMatcher.NO_MATCH && shown.score == best.score) return
+        pager.show(visibleIndex(engine.best), animate = true)
+    }
+
+    /** Engine column → its index among the visible pages (hidden categories take no page). */
+    private fun visibleIndex(column: Int) = (0 until column).count { columns[it].visibility != GONE }
+
+    /** Index among the visible pages → engine column (−1 if out of range). */
+    private fun columnAt(visible: Int): Int {
+        var n = 0
+        for (i in columns.indices) {
+            if (columns[i].visibility == GONE) continue
+            if (n++ == visible) return i
+        }
+        return -1
     }
 
     // ---------------------------------------------------------------- open / close

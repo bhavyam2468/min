@@ -147,6 +147,11 @@ dev.bhavyam.min` for jank. Screenshots are scratch — describe what they show i
 - Fuzzy rules: `search chastgpt` / `search chtgpt` find ChatGPT; `search cshtgpt` / `search ctgpt`
   don't (install or mock an app labelled ChatGPT, or use another multi-word label).
 - Enter runs the top result. Empty query lists all apps, recent first.
+- Universal search: typing jumps (with the page spring) to the category with the closest match —
+  e.g. with a contact "Aarav", typing `aa` on apps moves to contacts; no match anywhere → search
+  column; clearing the query → apps. `search <q>` over adb prints the same `best:` category.
+- Result lists fade out at the top edge while scrolled, and at the bottom edge once scrolled away
+  from the best match (none at rest).
 - Settings: every section present, sliders/switches persist, provider drag-reorder persists,
   permission rows grant.
 - Customise home (Settings → Customisation): settings closes and home becomes the editor (dashed
@@ -206,7 +211,7 @@ sees `--es cmd add_favorite` followed by a stray `chat gpt`.
 |---|---|
 | `help` | lists commands |
 | `status` | launcher / search / settings state, counts |
-| `search <query>` | results per category, ranked like the search screen |
+| `search <query>` | `best: <category>` (the column search jumps to), then results per category, ranked like the search screen |
 | `open_app <name>` | launches the best match |
 | `list_favorites` | favorites, top to bottom |
 | `add_favorite <name>` / `remove_favorite <name>` | edit favorites (`ok: added X to favorites`) |
