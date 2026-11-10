@@ -4,7 +4,6 @@ import android.content.Context
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import com.bhavyam.min.apps.AppEntry
 import com.bhavyam.min.search.SearchItem
 import com.bhavyam.min.theme.Globals
@@ -40,9 +39,6 @@ class ResultsPage(
         list.orientation = VERTICAL
         list.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
         scroll.isFillViewport = true
-        scroll.isVerticalScrollBarEnabled = false
-        scroll.isVerticalFadingEdgeEnabled = true
-        scroll.setFadingEdgeLength(dpi(Globals.FADING_EDGE))
         scroll.addView(list, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
         addView(ThemedText(context, Globals.TEXT_LABEL, Tone.MUTED).apply {
@@ -51,6 +47,9 @@ class ResultsPage(
             letterSpacing = Globals.LABEL_TRACKING
         }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
+
+    /** The rows currently showing, best last — what the studio lets you restyle. */
+    fun rows(): List<RoleButton> = rows.filter { it.visibility == VISIBLE }
 
     /** True while there is more list below the current scroll position. */
     fun canScrollDown() = scroll.canScrollVertically(1)
@@ -95,10 +94,8 @@ class ResultsPage(
      * (the keyboard shrinking the viewport, results changing), because the bottom is where the
      * best match lives.
      */
-    private class AnchoredScroll(context: Context) : ScrollView(context) {
+    private class AnchoredScroll(context: Context) : ShadowScroll(context) {
         private var fromBottom = 0
-
-        private val range get() = ((getChildAt(0)?.height ?: 0) - height).coerceAtLeast(0)
 
         fun toBottom() {
             fromBottom = 0
@@ -116,8 +113,5 @@ class ResultsPage(
             fromBottom = keep
             scrollTo(0, (range - keep).coerceAtLeast(0))
         }
-
-        // fade only the far (top) end; the bottom edge is the input
-        override fun getBottomFadingEdgeStrength() = 0f
     }
 }

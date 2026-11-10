@@ -10,6 +10,9 @@ class SearchEngine(val providers: List<SearchProvider>) {
 
     class Page(val provider: SearchProvider) {
         val items = ArrayList<SearchItem>()
+
+        /** How well this page's best item matched; pages compete on it. */
+        var best = Fuzzy.NONE
     }
 
     private val all = providers.map(::Page)
@@ -29,11 +32,21 @@ class SearchEngine(val providers: List<SearchProvider>) {
         for (page in all) {
             page.items.clear()
             if (page.provider.visible(query)) {
-                page.provider.search(query, page.items)
+                page.best = page.provider.search(query, page.items)
                 pages += page
             }
         }
         changed.emit()
+    }
+
+    /**
+     * The page that should be on screen: the one holding the best match, and [current] when
+     * it ties — the screen only moves when another category is genuinely closer.
+     */
+    fun bestPage(current: Int): Int {
+        var best = current.coerceIn(0, (pages.size - 1).coerceAtLeast(0))
+        for (i in pages.indices) if (pages[i].best > (pages.getOrNull(best)?.best ?: Fuzzy.NONE)) best = i
+        return best
     }
 
     /** Re-run the current query, e.g. after apps or contacts change underneath it. */

@@ -24,7 +24,7 @@ class Commands(private val app: App) {
     private val all: List<Command> = listOf(
         Command("help", "", "this list") { help() },
         Command("status", "", "what the launcher is showing and knows about") { status() },
-        Command("search", "<query>", "results per category, best first, as the search screen shows them") { search(it) },
+        Command("search", "<query>", "the category search would show, then results per category, best first") { search(it) },
         Command("open_app", "<name|package>", "launch the best-matching app") { arg -> withApp(arg) { launch(it) } },
         Command("list_favorites", "", "favourites in home-screen order") { listFavorites() },
         Command("add_favorite", "<name|package>", "pin an app to home") { arg ->
@@ -83,7 +83,8 @@ class Commands(private val app: App) {
         val engine = app.search
         val previous = engine.query.text
         engine.search(query)
-        val out = engine.pages.joinToString("\n") { page ->
+        val best = engine.pages.getOrNull(engine.bestPage(0))?.provider?.label ?: "(none)"
+        val out = "best: $best\n" + engine.pages.joinToString("\n") { page ->
             val items = page.items.take(RESULTS_PER_PAGE).joinToString(", ") { it.title }
             "${page.provider.label}: ${items.ifEmpty { "(no matches)" }}"
         }

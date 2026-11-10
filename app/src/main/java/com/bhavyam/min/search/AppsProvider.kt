@@ -10,8 +10,9 @@ class AppsProvider(private val index: AppIndex) : SearchProvider {
 
     override fun visible(query: Query) = true
 
-    override fun search(query: Query, out: MutableList<SearchItem>) {
-        if (query.isEmpty) out.addAll(index.apps)
-        else ranker.rank(query.norm, index.apps, { it.key }, out)
+    override fun search(query: Query, out: MutableList<SearchItem>): Int {
+        if (!query.isEmpty) return ranker.rank(query.norm, index.apps, { it.key }, out)
+        out.addAll(index.apps)
+        return Fuzzy.ANY
     }
 }

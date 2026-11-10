@@ -31,13 +31,15 @@ class FallbackProvider(private val context: Context, private val prefs: Prefs) :
 
     override fun visible(query: Query) = !query.isEmpty
 
-    override fun search(query: Query, out: MutableList<SearchItem>) {
+    /** Always offers somewhere to search, but never outranks a real match. */
+    override fun search(query: Query, out: MutableList<SearchItem>): Int {
         val off = disabled()
         for (item in ordered()) {
             if (item.target.id in off) continue
             item.query = query.text
             out += item
         }
+        return Fuzzy.ANY
     }
 
     /** Installed destinations in the user's order, enabled or not (for settings). */

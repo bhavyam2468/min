@@ -12,7 +12,7 @@ import com.bhavyam.min.theme.ThemeStore
  * A surface: card radius, elevation and a hairline border, in the surface colour —
  * or the raised surface colour for things that float (the popup).
  */
-class ThemedCard(context: Context, private val raised: Boolean = false) :
+open class ThemedCard(context: Context, private val raised: Boolean = false) :
     LinearLayout(context), ThemeStore.Listener {
 
     private val themes = App.of(context).themes

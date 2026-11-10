@@ -7,12 +7,16 @@ round, bold or dense as you like.
 - **Home** — date and time in the corner, favourites down the left. Tap to open, hold for
   *App info* and *Set as / Remove from favorites*. Hold the clock for settings.
 - **Search** — swipe down. Type; results stack upward from the input, which rides on the
-  keyboard. Swipe sideways between apps, contacts and "search … on". Enter runs the top
-  result. Swipe up to go home.
+  keyboard. Every category is searched at once and the screen glides to the closest match;
+  swipe sideways between apps, contacts and "search … on". Enter runs the top result.
+  Swipe up to go home.
 - **Forgiving, not sloppy** — one typo is forgiven (`chtgpt` → ChatGPT), two never are.
-- **Customisation** — settings → customisation opens the studio: touch the specimen and drag.
-  Corners, padding, colours (hold and glide for hue), type, icons, depth, surface, clock
-  patterns (`D, d MM` → `Fri, 2 May`), sizes and arrangement. Undo, shuffle, reset, export.
+- **Customisation** — settings → customisation turns the real home screen into the editor:
+  touch anything and drag. Hold and glide a favourite for its colour, tap it for the next
+  button type, drag corners and edges for shape and padding, drag the background to shift
+  it. Drag the favourites to any of nine magnetic spots, and resize the clock by its corner
+  to pick its size and how much date it shows. Search results and the long-press menu are
+  edited the same way. Undo, shuffle, reset, export.
 - **Feel** — every motion is a real spring you can tune in settings → animations. The
   launcher blurs out as apps open and comes back into focus when you return.
 - **adb** — drive and inspect it from a terminal: `scripts/min.sh help`.

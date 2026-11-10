@@ -5,7 +5,7 @@ import kotlin.random.Random
 
 /** How a role draws itself: the five button types from the token studio. */
 enum class Variant(val label: String) {
-    SOLID("Solid"), SOFT("Soft"), OUTLINE("Outline"), GHOST("Ghost"), GRADIENT("Gradient")
+    SOLID("filled"), SOFT("soft fill"), OUTLINE("outline"), GHOST("text only"), GRADIENT("gradient")
 }
 
 enum class IconStyle(val label: String) {
@@ -19,6 +19,9 @@ enum class ClockLayout(val label: String, val stacked: Boolean, val timeFirst: B
     DATE_OVER_TIME("date over time", true, false),
     TIME_OVER_DATE("time over date", true, true),
 }
+
+/** Where the favourites sit on each axis; the list snaps between these 3 × 3 spots. */
+enum class Anchor { START, CENTER, END }
 
 /** The three colour roles, named after what they paint in the launcher. */
 enum class Role {
@@ -46,6 +49,7 @@ data class Tokens(
     val clockDate: String, val clockTime: String,
     val clockDateSize: Float, val clockTimeSize: Float,
     val clockLayout: ClockLayout,
+    val listX: Anchor, val listY: Anchor,
 ) {
     val dark: Boolean get() = surface < 0.5f
 
@@ -76,6 +80,7 @@ data class Tokens(
         .put("clockDate", clockDate).put("clockTime", clockTime)
         .put("clockDateSize", clockDateSize).put("clockTimeSize", clockTimeSize)
         .put("clockLayout", clockLayout.name)
+        .put("listX", listX.name).put("listY", listY.name)
         .toString()
 
     companion object {
@@ -105,13 +110,15 @@ data class Tokens(
                 clockDateSize = f("clockDateSize", base.clockDateSize),
                 clockTimeSize = f("clockTimeSize", base.clockTimeSize),
                 clockLayout = enumOr(s("clockLayout", ""), base.clockLayout),
+                listX = enumOr(s("listX", ""), base.listX),
+                listY = enumOr(s("listY", ""), base.listY),
             )
         }
 
         private inline fun <reified E : Enum<E>> enumOr(name: String, fallback: E): E =
             enumValues<E>().firstOrNull { it.name == name } ?: fallback
 
-        /** "Surprise me" — a coherent random theme; the clock is left alone. */
+        /** "Surprise me" — a coherent random theme; the clock and the list position are left alone. */
         fun random(base: Tokens, r: Random = Random.Default): Tokens {
             fun R(a: Float, b: Float) = a + r.nextFloat() * (b - a)
             val hue = R(0f, 360f)

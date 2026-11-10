@@ -36,6 +36,7 @@ object Globals {
         clockDate = "D, d MM", clockTime = "h:ii",
         clockDateSize = 14f, clockTimeSize = 14f,
         clockLayout = ClockLayout.DATE_TIME,
+        listX = Anchor.START, listY = Anchor.CENTER,   // favourites: left edge, vertically centred
     )
 
     /* ---------------------------------------------------------------- token ranges */
@@ -70,7 +71,7 @@ object Globals {
     const val POPUP_GAP = 10f                  // popup ↔ the app it belongs to
     const val SEARCH_DRAG = 220f               // finger travel for a full open/close
     const val SEARCH_TRAVEL = 64f              // how far layers slide while crossfading
-    const val FADING_EDGE = 56f
+    const val EDGE_SHADOW = 56f                // scroll lists: shadow depth where rows slide under an edge
     const val TOUCH_ROW = 56f                  // minimum height of a settings row
 
     /* ---------------------------------------------------------------- type (sp) */
@@ -83,7 +84,6 @@ object Globals {
     const val TEXT_ROW = 17f
     const val TEXT_SUMMARY = 13f
     const val TEXT_BUTTON = 15f
-    const val TEXT_SPECIMEN = 42f
     const val LABEL_TRACKING = 0.18f           // letter spacing of the tiny category label
 
     /** Tablets get proportionally larger type so the layout isn't a stretched phone. */

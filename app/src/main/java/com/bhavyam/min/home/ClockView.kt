@@ -22,7 +22,7 @@ import java.util.TimeZone
 /**
  * Date and time from the clock tokens: two patterns, two sizes and an arrangement. Updates on
  * the minute tick (every second only if a pattern shows seconds), on time/zone/locale changes,
- * and follows the system 12/24-hour setting. Also used as the specimen in the studio.
+ * and follows the system 12/24-hour setting.
  */
 class ClockView(context: Context) : LinearLayout(context), ThemeStore.Listener {
 

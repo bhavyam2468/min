@@ -74,4 +74,18 @@ class FuzzyTest {
         // apps arrive most-recent-first; equal scores must not reshuffle them
         assertEquals(listOf("Maps B", "Maps A"), rank("maps", listOf("Maps B", "Maps A")))
     }
+
+    /** Universal search: categories compete on the best score their ranking returns. */
+    @Test fun rankReportsItsBestScoreOrNone() {
+        val out = ArrayList<String>()
+        val ranker = Ranker()
+        val apps = listOf("Adobe Scan", "Calendar").map { it to FuzzyKey(it) }
+        val contacts = listOf("Aarav").map { it to FuzzyKey(it) }
+        val appBest = ranker.rank("aa", apps, { it.second }, ArrayList<Pair<String, FuzzyKey>>())
+        val contactBest = ranker.rank("aa", contacts, { it.second }, ArrayList<Pair<String, FuzzyKey>>())
+        assertEquals(Fuzzy.score("aa", FuzzyKey("Aarav")), contactBest)
+        assertTrue("Aarav must beat every app for \"aa\"", contactBest > appBest)
+        assertEquals(Fuzzy.NONE, ranker.rank("zzz", listOf("Calendar"), ::FuzzyKey, out))
+        assertTrue(out.isEmpty())
+    }
 }

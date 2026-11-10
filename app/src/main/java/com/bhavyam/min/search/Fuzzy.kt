@@ -45,6 +45,12 @@ class FuzzyKey(label: String) {
  */
 object Fuzzy {
     const val NONE = -1
+
+    /**
+     * "Relevant, but not a match": what a page scores when it shows everything (empty query)
+     * or offers to search elsewhere. Below every real match, above [NONE].
+     */
+    const val ANY = 0
     const val MIN_TYPO_QUERY = 3
 
     private const val EXACT = 6
@@ -121,12 +127,13 @@ object Fuzzy {
 /**
  * Ranks items by [Fuzzy.score] into a caller-owned list, reusing one packed buffer so a
  * keystroke allocates nothing here. Ties keep the input order, so the source decides the
- * tie-break (apps: most recently used first; contacts: alphabetical).
+ * tie-break (apps: most recently used first; contacts: alphabetical). Returns the best score,
+ * or [Fuzzy.NONE] when nothing matched — that is how categories compete for the screen.
  */
 class Ranker {
     @PublishedApi internal var packed = LongArray(256)
 
-    inline fun <T> rank(query: String, items: List<T>, key: (T) -> FuzzyKey, out: MutableList<in T>) {
+    inline fun <T> rank(query: String, items: List<T>, key: (T) -> FuzzyKey, out: MutableList<in T>): Int {
         val n = items.size
         if (packed.size < n) packed = LongArray(n * 2)
         var m = 0
@@ -138,5 +145,6 @@ class Ranker {
         }
         Arrays.sort(packed, 0, m)
         for (k in m - 1 downTo 0) out.add(items[Int.MAX_VALUE - (packed[k] and 0xFFFFFFFFL).toInt()])
+        return if (m == 0) Fuzzy.NONE else (packed[m - 1] ushr 32).toInt()
     }
 }

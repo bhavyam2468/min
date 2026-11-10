@@ -9,8 +9,10 @@ is a bug: fix the code, or update this file in the same change.
 - Background is the `surface` token's page colour — pure black out of the box.
 - Top-left: date and time side by side in small white text (`Tue, 10 November  2:25`), live,
   12/24-hour following the system. Patterns, sizes and arrangement are clock tokens.
-- Favourites: a vertical list, centred vertically on the left. A fresh install picks defaults
-  by name (phone, messages, browser, camera, …) and skips any that aren't installed. Persisted.
+- Favourites: a vertical list, centred vertically on the left by default; the studio can move
+  it to any of nine spots (top/middle/bottom × left/centre/right). A fresh install picks
+  defaults by name (phone, messages, browser, camera, …) and skips any that aren't installed.
+  Persisted. When the list scrolls, soft shadows at its top and bottom edges show there's more.
 - Tap launches the app; it grows out of the row (scale-up animation) while home blurs out.
 - Long press: a small popup springs out above the app (below it if there's no room) with two
   options — *App info* and *Set as favorite / Remove from favorites*. Instant and persistent.
@@ -26,6 +28,10 @@ is a bug: fix the code, or update this file in the same change.
   `SEARCH`). Above that: results, centred, best match nearest the input, scrollable. The
   stack comes from bottom gravity in a fill-viewport scroll view — no manual offsets.
 - Categories are full-width pages swiped horizontally on a spring.
+- Search is universal: every keystroke searches every category, and the screen glides to the
+  category holding the closest match (typing `aa` on `APPS` moves to `CONTACTS` when *Aarav*
+  beats every app). Ties keep the current page. An empty query starts on `APPS`.
+- Result lists have edge shadows above and below, fading in as there is more to scroll.
 - Empty query: every app, most recently used nearest the bar.
 - Enter runs the top result of the focused category. Tap runs a result. Long press on an app
   result opens the same popup as home.
@@ -56,20 +62,34 @@ Note: `gmaps` matches Google Maps — it is one inserted letter before the word 
   and the adb CLI all read that list.
 
 ### Customisation (token studio)
-- Direct manipulation, no sliders. Where the finger lands on the specimen card decides what
-  it edits; a tip trails the finger with the name and value, a highlight marks the spot.
-  - card corners → card radius · card surface → ↕ light/dark, ↔ grey tint, pinch → scale
+- Edit mode on the real launcher, not a mock. Settings → customisation closes settings and
+  lays a clear editing layer over home. A small toolbar floats at the bottom: *done*, the part
+  to edit (`home` · `search` · `menu`), then undo, redo, shuffle, reset, and copy tokens as
+  JSON. `search` lists every app (no keyboard). `menu` springs the long-press menu out of the
+  first favourite. Back closes the format editor, then the studio.
+- No sliders. Where the finger lands on the real screen decides what it edits. A tip trails
+  the finger with the name and value, and a highlight marks the spot:
+  - favourites (primary) · search results (secondary) · menu options (neutral), button body →
+    hold and glide: ↔ hue, ↕ vividness; tap cycles the button type (filled, soft fill,
+    outline, text only, gradient)
   - button corners → button radius · left/right edges → horizontal padding · top/bottom
-    edges → vertical padding (density)
-  - button body → hold and glide: ↔ hue, ↕ vividness; tap cycles the button type
-    (solid, soft, outline, ghost, gradient)
-  - icon → tap cycles style, drag for stroke · "Aa" → tap next family, drag for weight
-  - strip under the card → elevation
-  - date / time → ↕ size, ↔ rearrange (date·time, time·date, stacked), tap → edit pattern
-- Toolbar: back, undo, redo, shuffle, reset, copy tokens as JSON.
-- Tokens drive the launcher visibly: primary → home favourites, accent → search results,
-  neutral → the popup, surface → page/card colours (dark ⇄ light), plus radius, padding,
-  type, icons, elevation and scale everywhere.
+    edges → vertical padding (density) · menu icons → tap style, drag stroke
+  - menu card corners → card radius · menu card body → ↕ elevation
+  - background → ↕ light ⇄ dark, ↔ shift its colour (a grey background takes a gentle tint
+    first), tap → back to grey, pinch → scale everything
+  - clock text and the search input → tap next type family, ↔ weight
+  - long press the date or the time → edit its pattern with live token chips
+- On `home`, dashed guides show what moves:
+  - favourites: grab the grip or the frame and drag. The list follows the finger, gets pulled
+    onto each of the nine spots as it passes (with a tick), and glides into the nearest one
+    when let go. Undo and reset glide it back the same way.
+  - clock: drag the knob on its bottom-right corner. Height picks the size (9–72sp; past
+    24sp the date drops under the time at about 0.37× its size). Width picks how much date
+    fits, richest first: `DD, d MM yyyy` → `DD, d MM` → `D, d MM` → `D, d M` → `D d` → `D` →
+    time only.
+- Tokens drive the launcher visibly: primary → home favourites, secondary/accent → search
+  results, neutral → the popup, surface → page/card colours (dark ⇄ light), plus radius,
+  padding, type, icons, elevation, list position and scale everywhere.
 
 ### Clock patterns (KWGT-style)
 `d 2 · dd 02` day · `D Fri · DD Friday` · `m 5 · mm 05` month · `M Jan · MM January` ·
@@ -114,9 +134,9 @@ App (process state) ── Prefs · Motion · ThemeStore · AppIndex · Favorite
  └─ MainActivity (system jobs) ── HomeRoot (window content)
        ├─ HomeLayer   clock + favourites
        ├─ SearchLayer pages of ResultsPage + input
-       ├─ SettingsView ┐ OverlayLayer
-       ├─ StudioView   ┘
-       └─ ContextPopup
+       ├─ SettingsView  (OverlayLayer)
+       ├─ ContextPopup
+       └─ StudioLayer  clear editing layer over the real views above
  CliReceiver ── Commands ── App.ui (LauncherUi = MainActivity)
 ```
 
@@ -133,17 +153,19 @@ App (process state) ── Prefs · Motion · ThemeStore · AppIndex · Favorite
 | `search/SearchProvider.kt` | The plug-in contract for a category (+ `Launcher`, `SearchItem`, `Query`). |
 | `search/AppsProvider.kt`, `ContactsProvider.kt`, `FallbackProvider.kt` | The three categories. |
 | `search/QueryTargets.kt` | Where a fallback search can go and the intent for each. |
-| `search/SearchEngine.kt` | Runs a query through every provider into reusable pages. |
+| `search/SearchEngine.kt` | Runs a query through every provider into reusable pages; picks the page with the best match. |
 | `settings/Setting.kt` | Setting and entry types; the `SettingsHost` contract. |
 | `settings/SettingsRegistry.kt` | Every setting, as data. |
 | `settings/Prefs.kt` | Typed storage keyed by registry entries; change observation. |
 | `settings/SettingsView.kt` | The settings overlay, built from the registry. |
 | `settings/SettingRows.kt` | One row type per setting type. |
 | `settings/ProviderOrderView.kt` | Drag-to-reorder list of fallback destinations. |
-| `studio/StudioView.kt` | The token studio: gestures, history, toolbar. |
+| `studio/StudioLayer.kt` | The token studio: hit-tests the real launcher, turns gestures into tokens, history. |
 | `studio/Zones.kt` | What each spot edits and how a drag maps to tokens. |
-| `studio/SpecimenCard.kt` | The miniature launcher being edited. |
-| `studio/Tip.kt`, `Highlight.kt`, `Ambient.kt` | Finger tip, spot marker, coloured backdrop. |
+| `studio/Toolbar.kt`, `Segment.kt` | The floating toolbar (+ scenes); the sliding-pill segmented control. |
+| `studio/Guides.kt` | Dashed frames, grip and resize knob for what moves on home. |
+| `studio/ClockFit.kt`, `ClockMeasure.kt` | Box → clock size, stacking and date detail; real-text metrics for it. |
+| `studio/Tip.kt`, `Highlight.kt` | Finger tip, spot marker. |
 | `studio/FormatEditor.kt` | Clock pattern editing with live token chips. |
 | `studio/History.kt` | Undo/redo stack. |
 | `theme/Globals.kt` | Every UI variable: default tokens, ranges, metrics, type sizes, springs. |
@@ -155,5 +177,5 @@ App (process state) ── Prefs · Motion · ThemeStore · AppIndex · Favorite
 | `motion/Motion.kt` | Spring configs from settings × global speed. |
 | `home/HomeRoot.kt` | Stacks the layers; home⇄search gesture; blur-to-focus; back. |
 | `home/HomeLayer.kt`, `ClockView.kt`, `ClockFormat.kt`, `ContextPopup.kt` | Home screen pieces. |
-| `ui/*` | Reusable themed views (text, buttons, icons, cards, controls), pager, IME follower, list animation, overlay base. |
+| `ui/*` | Reusable themed views (text, buttons, icons, cards, controls), pager, IME follower, list animation, edge-shadow scroll, overlay base. |
 | `cli/*` | adb receiver, command table, the UI contract the CLI drives. |

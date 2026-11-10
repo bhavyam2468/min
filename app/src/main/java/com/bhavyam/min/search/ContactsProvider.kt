@@ -48,9 +48,10 @@ class ContactsProvider(private val context: Context) : SearchProvider {
 
     override fun visible(query: Query) = granted
 
-    override fun search(query: Query, out: MutableList<SearchItem>) {
-        if (query.isEmpty) out.addAll(contacts)
-        else ranker.rank(query.norm, contacts, { it.key }, out)
+    override fun search(query: Query, out: MutableList<SearchItem>): Int {
+        if (!query.isEmpty) return ranker.rank(query.norm, contacts, { it.key }, out)
+        out.addAll(contacts)
+        return Fuzzy.ANY
     }
 
     /** Starts loading if the permission arrived since (dialog or system settings); cheap otherwise. */

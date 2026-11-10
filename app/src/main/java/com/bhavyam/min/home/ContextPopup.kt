@@ -29,9 +29,12 @@ import com.bhavyam.min.ui.safe
 class ContextPopup(context: Context, private val onInfo: (AppEntry) -> Unit) : FrameLayout(context) {
 
     private val app = App.of(context)
-    private val card = ThemedCard(context, raised = true)
+    val card = ThemedCard(context, raised = true)
     private val info = RoleButton(context, Role.MENU, Globals.TEXT_BUTTON, Icon.INFO)
     private val favorite = RoleButton(context, Role.MENU, Globals.TEXT_BUTTON, Icon.STAR)
+
+    /** The menu's buttons, for the studio to restyle in place. */
+    val options = listOf(info, favorite)
     private val spring = Spring(0.001f) { p ->
         card.alpha = p.coerceIn(0f, 1f)
         val s = POP_FROM + (1f - POP_FROM) * p
@@ -68,9 +71,11 @@ class ContextPopup(context: Context, private val onInfo: (AppEntry) -> Unit) : F
         favorite.text = if (fav) "Remove from favorites" else "Set as favorite"
         favorite.icon = if (fav) Icon.STAR_OFF else Icon.STAR
         visibility = VISIBLE
+        // measured against the parent: until its first show this layer was never laid out
+        val root = parent as View
         card.measure(
-            MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST),
-            MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST),
+            MeasureSpec.makeMeasureSpec(root.width, MeasureSpec.AT_MOST),
+            MeasureSpec.makeMeasureSpec(root.height, MeasureSpec.AT_MOST),
         )
         val w = card.measuredWidth
         val h = card.measuredHeight
@@ -80,7 +85,7 @@ class ContextPopup(context: Context, private val onInfo: (AppEntry) -> Unit) : F
         val top = anchorAt[1] - selfAt[1]
         val gap = dp(Globals.POPUP_GAP)
         val margin = dp(Globals.EDGE) / 2f
-        val x = (ax - w / 2f).coerceIn(safe.left + margin, (width - safe.right - margin - w).coerceAtLeast(safe.left + margin))
+        val x = (ax - w / 2f).coerceIn(safe.left + margin, (root.width - safe.right - margin - w).coerceAtLeast(safe.left + margin))
         val above = top - gap - h >= safe.top + margin
         val y = if (above) top - gap - h else top + anchor.height + gap
         card.translationX = x

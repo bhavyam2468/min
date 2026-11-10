@@ -11,15 +11,15 @@ import android.widget.LinearLayout
 import com.bhavyam.min.App
 import com.bhavyam.min.apps.AppEntry
 import com.bhavyam.min.observe
-import com.bhavyam.min.search.SearchEngine
 import com.bhavyam.min.search.SearchItem
 import com.bhavyam.min.search.SearchProvider
 import com.bhavyam.min.theme.Globals
 
 /**
  * The search screen: category pages you swipe between, and the input at the very bottom,
- * riding on top of the keyboard. Typing re-runs [SearchEngine]; the engine's change signal
- * rebinds the pages, so data changing underneath (apps installed, contacts loaded) shows too.
+ * riding on top of the keyboard. Search is universal: every category is searched on every
+ * keystroke and the screen follows the best match. The engine's change signal rebinds the
+ * pages, so data changing underneath (apps installed, contacts loaded) shows too.
  */
 class SearchLayer(
     context: Context,
@@ -58,10 +58,18 @@ class SearchLayer(
 
         ImeFollower(content) { insets, bottom ->
             val safe = insets.safe()
-            content.setPadding(safe.left, safe.top, safe.right, bottom)
+            content.setPadding(safe.left, safe.top, safe.right, bottom + bottomInset)
         }.attach()
         engine.search("")
     }
+
+    /** Extra room kept free under the input, e.g. for the studio's toolbar. */
+    var bottomInset = 0
+        set(v) {
+            if (field == v) return
+            field = v
+            content.requestApplyInsets()
+        }
 
     /** Text currently in the input. */
     val query: String get() = input.text.toString()
@@ -83,9 +91,18 @@ class SearchLayer(
 
     private fun currentProvider() = engine.pages.getOrNull(pager.current)?.provider
 
+    /**
+     * Rebinds every page, then glides to the category holding the closest match — typing "aa"
+     * on APPS moves to CONTACTS when Aarav beats every app. An empty query starts on APPS.
+     */
     private fun bind() {
         val visible = engine.pages.map { pages.getValue(it.provider) }
         pager.setPages(visible)
         for (p in engine.pages) pages.getValue(p.provider).bind(p.items)
+        val target = if (engine.query.isEmpty) 0 else engine.bestPage(pager.current)
+        if (target != pager.current) pager.go(target, animate = true)
     }
+
+    /** The result rows on screen right now — what the studio restyles. */
+    fun rows(): List<RoleButton> = currentProvider()?.let { pages.getValue(it).rows() } ?: emptyList()
 }

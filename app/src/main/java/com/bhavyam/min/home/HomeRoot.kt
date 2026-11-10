@@ -17,7 +17,8 @@ import com.bhavyam.min.search.Launcher
 import com.bhavyam.min.settings.SettingsHost
 import com.bhavyam.min.settings.SettingsRegistry
 import com.bhavyam.min.settings.SettingsView
-import com.bhavyam.min.studio.StudioView
+import com.bhavyam.min.studio.Scene
+import com.bhavyam.min.studio.StudioLayer
 import com.bhavyam.min.theme.Globals
 import com.bhavyam.min.theme.Theme
 import com.bhavyam.min.theme.ThemeStore
@@ -26,8 +27,8 @@ import com.bhavyam.min.ui.dp
 import kotlin.math.abs
 
 /**
- * The launcher's single window: home and search stacked, settings and the studio over them,
- * the long-press popup on top. It owns the vertical gesture between home and search — a drag
+ * The launcher's single window: home and search stacked, settings over them, the long-press
+ * popup above, and the studio — a clear editing layer over the real screens — on top. It owns the vertical gesture between home and search — a drag
  * follows the finger exactly, a release hands its speed to the spring, and a moving spring can
  * be caught mid-flight — and the blur-to-focus as the launcher leaves and returns.
  */
@@ -50,7 +51,7 @@ class HomeRoot(
     )
     private val search = SearchLayer(context, onRun = { item, v -> item.run(launcher, v) }, onHold = popup::show)
     private val settings = SettingsView(context, host)
-    val studio = StudioView(context)
+    private val studio = StudioLayer(context, home, search, popup, ::showScene)
 
     /** 0 = home, 1 = search. Overshoot past either end is the bounce. */
     private val progress = Spring(0.001f, ::render)
@@ -62,14 +63,23 @@ class HomeRoot(
     private var dragFromProgress = 0f
     private var dragging = false
 
+    /** Runs once search has fully slid away (the studio's menu scene needs home in place). */
+    private var atHome: (() -> Unit)? = null
+
     init {
         addView(home, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(search, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(settings, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        addView(studio, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(popup, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(studio, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         search.isClickable = true // empty space in search must not reach home underneath
-        progress.onRest = { if (progress.value == 0f) search.setQuery("") }
+        progress.onRest = {
+            if (progress.value == 0f) {
+                search.setQuery("")
+                atHome?.invoke()
+                atHome = null
+            }
+        }
         progress.snapTo(0f)
         focus.snapTo(1f)
     }
@@ -116,12 +126,42 @@ class HomeRoot(
         settings.open()
     }
 
-    fun closeSettings() {
-        studio.close()
-        settings.close()
+    fun closeSettings() = settings.close()
+
+    /** Customisation from settings: everything else steps aside and the real home is edited. */
+    fun openStudio() {
+        closeOverlays()
+        if (searchOpen) closeSearch()
+        studio.open()
     }
 
-    fun openStudio() = studio.open()
+    /**
+     * Shows a part of the launcher for the studio to edit, without the keyboard: home, search
+     * listing every app, or the long-press menu sprung from the first favourite.
+     */
+    private fun showScene(scene: Scene) {
+        popup.hide()
+        atHome = null
+        val spring = app.motion[SettingsRegistry.SPRING_SEARCH]
+        when (scene) {
+            Scene.SEARCH -> {
+                search.setQuery("")
+                search.visibility = VISIBLE
+                progress.animateTo(1f, spring)
+            }
+            Scene.HOME -> progress.animateTo(0f, spring)
+            Scene.MENU -> if (progress.value == 0f && !progress.isRunning) showMenuSpecimen() else {
+                atHome = ::showMenuSpecimen
+                progress.animateTo(0f, spring)
+            }
+        }
+    }
+
+    private fun showMenuSpecimen() {
+        val row = home.rows().firstOrNull()
+        if (row != null) popup.show(row.tag as AppEntry, row)
+        else app.apps.apps.firstOrNull()?.let { popup.show(it, home.clock) }
+    }
 
     /** Re-reads live settings rows after the launcher regains the screen (permission dialogs). */
     fun refreshSettings() = settings.refresh()
@@ -134,8 +174,8 @@ class HomeRoot(
 
     /** Back steps out of whatever is on top. False when already at a clean home. */
     fun back(): Boolean = when {
+        studio.isOpen -> { studio.back(); true }
         popup.isShowing -> { popup.dismiss(); true }
-        studio.isOpen -> { if (!studio.back()) studio.close(); true }
         settings.isOpen -> { if (!settings.back()) settings.close(); true }
         searchOpen -> { closeSearch(); true }
         else -> false

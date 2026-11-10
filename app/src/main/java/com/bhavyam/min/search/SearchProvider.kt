@@ -34,6 +34,10 @@ interface SearchProvider {
     /** Whether the page exists right now (e.g. contacts need a permission). */
     fun visible(query: Query): Boolean
 
-    /** Append results to [out], best first. */
-    fun search(query: Query, out: MutableList<SearchItem>)
+    /**
+     * Append results to [out], best first, and return how well the best one matched
+     * ([Fuzzy.score], [Fuzzy.ANY] for "everything / elsewhere", [Fuzzy.NONE] for nothing).
+     * Search is universal: the page with the best match takes the screen.
+     */
+    fun search(query: Query, out: MutableList<SearchItem>): Int
 }

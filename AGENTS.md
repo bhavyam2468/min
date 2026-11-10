@@ -98,7 +98,10 @@ features.
      `remove_favorite <same>`, `open_search maps`, `close_search`, `open_settings`,
      `close_settings`, `get_setting`, `set_setting anim_speed 1.5`, `set_setting blur false`,
      and an unknown command (must answer `error: …`, not crash).
-   - screenshots of home, search, settings, studio: `adb exec-out screencap -p > logs/shot-<name>.png`
+   - screenshots of home, search, settings, and the studio on each scene (home, search, menu):
+     `adb exec-out screencap -p > logs/shot-<name>.png`
+   - universal search: `search <query>` answers `best: <category>` first — the page the
+     search screen would glide to (e.g. a contact "Aarav" beats every app for `aa`)
    - crashes and warnings: `adb logcat -d -v time > logs/50-logcat.log`, and
      `adb logcat -d -b crash > logs/51-crash.log`.
    - CLI transcript (command → answer) in `logs/60-cli.log`.

@@ -126,6 +126,6 @@ class ProviderOrderView(context: Context) : FrameLayout(context) {
                 if (r !== row) r.spring.animateTo((i * rowHeight).toFloat(), motion[SettingsRegistry.SPRING_LIST])
             }
         }
-        row.performHapticFeedback(HapticFeedbackConstants.SEGMENT_TICK)
+        row.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
     }
 }
