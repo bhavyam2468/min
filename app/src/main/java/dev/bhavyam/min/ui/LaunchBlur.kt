@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.RenderEffect
 import android.graphics.Shader
+import android.os.Build
 import android.view.View
 import dev.bhavyam.min.motion.Spring
 import dev.bhavyam.min.settings.SettingsRegistry
@@ -25,7 +26,7 @@ class LaunchBlur(private val context: Context, private val target: View, private
 
     private val unlock = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (waitingForUnlock) {
+            if (intent.action == Intent.ACTION_USER_PRESENT) {
                 waitingForUnlock = false
                 focus()
             }
@@ -33,15 +34,31 @@ class LaunchBlur(private val context: Context, private val target: View, private
     }
 
     init {
-        context.registerReceiver(unlock, IntentFilter(Intent.ACTION_USER_PRESENT), Context.RECEIVER_NOT_EXPORTED)
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Context.RECEIVER_EXPORTED
+        } else {
+            0
+        }
+        context.registerReceiver(unlock, IntentFilter(Intent.ACTION_USER_PRESENT), flags)
         spring.snapTo(1f)
     }
 
     /** The launcher became visible: focus now, or as soon as the lock screen is gone. */
-    fun onStart() {
-        waitingForUnlock = keyguard.isKeyguardLocked
-        if (!waitingForUnlock) focus()
+    fun onStart() = checkFocus()
+
+    /** Resumed in the foreground: ensure we focus if not locked. */
+    fun onResume() = checkFocus()
+
+    /** Window gained focus: user is actively interacting with launcher, so it must not be locked or blurred. */
+    fun onWindowFocusChanged(hasFocus: Boolean) {
+        if (hasFocus) {
+            waitingForUnlock = false
+            focus()
+        }
     }
+
+    /** Home pressed or returned to home. */
+    fun onNewIntent() = checkFocus()
 
     /** Hidden: start blurred next time, so returning always plays the focus animation. */
     fun onStop() = spring.snapTo(1f)
@@ -50,6 +67,15 @@ class LaunchBlur(private val context: Context, private val target: View, private
     fun out() = spring.animateTo(1f, settings.spring(SettingsRegistry.BLUR_MOTION))
 
     fun release() = context.unregisterReceiver(unlock)
+
+    private fun checkFocus() {
+        if (!keyguard.isKeyguardLocked) {
+            waitingForUnlock = false
+            focus()
+        } else {
+            waitingForUnlock = true
+        }
+    }
 
     private fun focus() = spring.animateTo(0f, settings.spring(SettingsRegistry.BLUR_MOTION))
 

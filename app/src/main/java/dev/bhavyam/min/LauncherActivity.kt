@@ -105,6 +105,16 @@ class LauncherActivity : Activity(), LauncherUi, SettingsHost, HomeView.Host, Se
         blur.onStart()
     }
 
+    override fun onResume() {
+        super.onResume()
+        blur.onResume()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        blur.onWindowFocusChanged(hasFocus)
+    }
+
     /** Leaving (an app opened, the screen went off): come back to a clean home, without animation. */
     override fun onStop() {
         super.onStop()
@@ -118,6 +128,7 @@ class LauncherActivity : Activity(), LauncherUi, SettingsHost, HomeView.Host, Se
     /** Home pressed while already home: everything animates shut. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        blur.onNewIntent()
         if (hasWindowFocus() || popup.isShowing) {
             popup.dismiss()
             if (studio.isOpen) closeStudio()

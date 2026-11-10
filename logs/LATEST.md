@@ -112,3 +112,29 @@ None. All tests passed.
 
 ## For the programming agent (prioritised list)
 1. Keep `<uses-feature android:name="android.hardware.telephony" android:required="false" />` in `app/src/main/AndroidManifest.xml` so `lintDebug` succeeds during clean builds.
+
+---
+
+## Fix for Blur-to-Focus Hang Issue (2026-11-10 11:48 UTC)
+
+### Root Cause Analysis
+1. **System Broadcast Blocked on Android 14+ (`RECEIVER_NOT_EXPORTED`)**:
+   `LaunchBlur` registered its `ACTION_USER_PRESENT` receiver using `Context.RECEIVER_NOT_EXPORTED`. Starting with Android 14 (targetSdk 34+), the OS strictly enforces that non-exported receivers only accept broadcasts originating from the same UID. Since `ACTION_USER_PRESENT` is broadcast by the system (`system_server`), it was silently dropped. Whenever the launcher was started with the lockscreen active (`keyguard.isKeyguardLocked == true`), `waitingForUnlock` was set to `true`, and because the unlock broadcast was dropped, `focus()` was never called, permanently freezing the spring at `1f` (100% blurred).
+2. **Missing Lifecycle Focus Hooks on App Return**:
+   When launching an app, `blur.out()` animates the spring to `1f`. If the user immediately pressed Home or returned before `onStop()` was dispatched (e.g. quick return, translucent activity, PiP window), `LauncherActivity.onStart()` was never called again on return. Because `LauncherActivity` did not implement `onResume()`, `onWindowFocusChanged()`, or wire `onNewIntent()` to `LaunchBlur`, `focus()` was never triggered, leaving the screen blurred.
+
+### Fix Applied
+- `LaunchBlur.kt`:
+  - Changed `Intent.ACTION_USER_PRESENT` receiver registration to `Context.RECEIVER_EXPORTED` on API 33+.
+  - Added `checkFocus()` which checks `!keyguard.isKeyguardLocked` and triggers `focus()`.
+  - Added `onResume()`, `onWindowFocusChanged(hasFocus)`, and `onNewIntent()` handlers. In `onWindowFocusChanged(true)`, `waitingForUnlock` is immediately cleared and `focus()` is guaranteed to run.
+- `LauncherActivity.kt`:
+  - Implemented `onResume()` and forwarded to `blur.onResume()`.
+  - Implemented `onWindowFocusChanged(hasFocus)` and forwarded to `blur.onWindowFocusChanged(hasFocus)`.
+  - Forwarded `onNewIntent(intent)` to `blur.onNewIntent()`.
+
+### Verification
+- `./gradlew assembleDebug testDebugUnitTest lintDebug`: SUCCESS (0 errors).
+- Tested live on Galaxy A35 5G:
+  - Returning to Home after launching apps (Chrome) brings the launcher back crystal sharp with the spring settling to 0.
+  - Waking/unlocking from lockscreen triggers focus immediately upon gaining window focus and user presentation.
