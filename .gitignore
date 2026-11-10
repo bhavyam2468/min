@@ -1,0 +1,12 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+# testing-agent scratch output (see AGENTS.md); only logs/LATEST.md is committed
+logs/*
+!logs/LATEST.md
